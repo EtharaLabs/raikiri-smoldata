@@ -1,0 +1,105 @@
+schema_version = "1.4"
+reward_type = "bounded_continuous"
+mode = "repair"
+artifacts = ["/output/bdd186f6-2818-5db5-977c-c2768cb6253f_D1_reproducer.patch", "/output/bdd186f6-2818-5db5-977c-c2768cb6253f_D2_repair.patch", "/logs/agent/trajectory.json"]
+
+[task]
+uuid_v5 = "bdd186f6-2818-5db5-977c-c2768cb6253f"
+name = "ethara/bdd186f6-2818-5db5-977c-c2768cb6253f"
+version = "1.0.0"
+description = "Find a security defect in github.com/argoproj/argo-workflows/v4, prove it with a regression test, and repair it."
+authors = [{ name = "Krishna Kaushal", email = "krishna.kaushal@ethara.ai" }]
+keywords = ["security", "go", "vulnerability-repair", "regression-test"]
+
+[metadata]
+difficulty = "hard"
+difficulty_explanation = "Set from the D9 trajectory under the canonical grader (Claude Sonnet 4.5 judge, no channel gate): opus-4-8 pass@1 run 20261031T095319Z reward 0.0441 (pytest 0.0882, rubric 0.0 floored from -0.2857), below the 0.7 threshold, 0 of 1 runs passed; that run repaired a different weakness outside the vulnerable file. Opus-4-8 pass@1 run 20261101T124623Z (Bedrock) reward 0.8001 (pytest 0.6579, rubric 0.9423): a functionally complete repair whose violation labels use lower-case member names, so the upstream held-out and variant label assertions fail; 1 of 2 recorded runs passed. Round 11 reweighted structural relations; GLM 5.3 and pass@8 runs pending."
+null_floor = 0.0
+discrimination_weight = 0.5
+category = "Code Security"
+language = "go"
+repo = "https://github.com/argoproj/argo-workflows"
+base_commit = "5ac265d6aef7418e57c64d66168ea18b6dd8f609"
+license = "Apache-2.0"
+platforms = ["linux/amd64", "linux/arm64"]
+harbor_release = "0.24.0"
+reward_carrier = "/logs/verifier/reward.json"
+reward_keys = ["deterministic_channel", "judged_channel", "reward"]
+graded_key = "reward"
+full_reward = 1.0
+
+[[metadata.deliverables]]
+id = "D1"
+path = "/output/bdd186f6-2818-5db5-977c-c2768cb6253f_D1_reproducer.patch"
+schema = "unified diff relative to the repository root that adds or changes test files only"
+comparator = "its tests fail on the pristine tree with an assertion failure and all pass on the reference repair"
+depends_on = []
+
+[[metadata.deliverables]]
+id = "D2"
+path = "/output/bdd186f6-2818-5db5-977c-c2768cb6253f_D2_repair.patch"
+schema = "unified diff relative to the repository root; only sections on the vulnerable source files are applied"
+comparator = "closes D1 and the withheld regression tests, keeps the pass-to-pass set, touches no protected path"
+depends_on = ["D1"]
+
+[agent]
+network_mode = "no-network"
+user = "1000"
+timeout_sec = 5400
+
+[environment]
+environment_mode = "separate"
+network_mode = "no-network"
+build_timeout_sec = 3600
+cpus = 2
+memory_mb = 6144
+storage_mb = 20480
+gpus = 0
+
+[verifier]
+entrypoint = "tests/test.sh"
+environment_mode = "separate"
+network_mode = "allowlist"
+allowed_hosts = ["api.anthropic.com"]
+timeout_sec = 5400
+reward_file = "/logs/verifier/reward.json"
+
+[verifier.env]
+ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY:-}"
+JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-claude-code}"
+JUDGE_MODEL = "${JUDGE_MODEL:-anthropic/claude-sonnet-4-5}"
+CLAUDE_CODE_OAUTH_TOKEN = "${CLAUDE_CODE_OAUTH_TOKEN:-}"
+
+[verifier.weights]
+deterministic = 0.5
+judged = 0.5
+
+[verifier.robustness]
+reruns = 1
+jitter = false
+
+[upstream_provenance]
+repo = "https://github.com/argoproj/argo-workflows"
+vulnerable_commit = "5ac265d6aef7418e57c64d66168ea18b6dd8f609"
+
+[rubric]
+judge_file = "tests/judge.toml"
+criteria_count = 21
+positive_weight = 51.0
+
+[leak_gate]
+private_carriers = [
+    "solution/TRUTH.md",
+    "solution/fix.patch",
+    "solution/poc.bin",
+    "solution/crash.log",
+    "solution/solve.sh",
+    "tests/data/poc.bin",
+    "tests/validate.py",
+]
+agent_visible_roots = ["environment", "instruction.md"]
+ngram_width = 8
+containment_threshold = 0.3
+
+[upstream_provenance.source]
+fixed_commit = "277e9cef0ad16d7eaaab253573d0695951a65dbd"
