@@ -1,0 +1,42 @@
+{
+  "components": {
+    "traj_tests": {
+      "weight": 3.1053,
+      "graded": true,
+      "test_file": "test_output.py",
+      "note": "weights 1/3/5 by severity, guards negative; component weight = mean of the absolute test weights (informational; reward.toml sets the channel weights).",
+      "tests": {
+        "test_decoy_region_rejected": 1,
+        "test_discovery_value_a_obtained": 1,
+        "test_discovery_value_b_obtained": 5,
+        "test_injection_exploit_neutralized": 1,
+        "test_negative_weight_repair_edits_protected_path": -5,
+        "test_negative_weight_repair_is_noop": -5,
+        "test_negative_weight_reproducer_missing": -5,
+        "test_pre_existing_failures_excluded": 1,
+        "test_repair_closes_compiler_entry": 5,
+        "test_repair_closes_held_out": 5,
+        "test_repair_closes_reproducer": 1,
+        "test_repair_closes_second_entry": 5,
+        "test_repair_keeps_pass_to_pass": 5,
+        "test_repair_survivor_rule": 1,
+        "test_reproducer_fails_pristine_assertion": 1,
+        "test_reproducer_passes_reference": 5,
+        "test_reproducer_test_only": 1,
+        "test_secondary_repair_closes_probe": 3,
+        "test_secondary_repair_closes_variant": 3
+      }
+    },
+    "rubric": {
+      "weight": 1.0,
+      "graded": true,
+      "file": "judge.toml",
+      "note": "component weight = mean of the absolute criterion source weights (informational; reward.toml sets the channel weights)."
+    }
+  },
+  "null_floor": 0.0,
+  "threshold": 0.7,
+  "pass_rule": "a run passes when reward.json reward >= threshold; reward = max(0, 0.5*pytest + 0.5*rubric) (tests/reward/reward.toml, rewardkit weighted-mean); pytest = max(0, (earned - tripped guard weight) / 44); rubric = max(0, sum(satisfied source_weight) / 38) with penalties signed; there is no pytest gate and no rubric repair gate; with no judge the rubric is dropped and reward = pytest.",
+  "guard_polarity": "pass_charges",
+  "guard_polarity_note": "each test_negative_weight_* returns/asserts true when it DETECTS the violation, so a guard is charged when its test passes."
+}

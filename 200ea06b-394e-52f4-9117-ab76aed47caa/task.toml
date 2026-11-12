@@ -1,0 +1,90 @@
+schema_version = "1.4"
+reward_type = "bounded_continuous"
+artifacts = ["/output/200ea06b-394e-52f4-9117-ab76aed47caa_D1_reproducer.patch", "/output/200ea06b-394e-52f4-9117-ab76aed47caa_D2_repair.patch", "/logs/agent/trajectory.json"]
+
+[task]
+uuid_v5 = "200ea06b-394e-52f4-9117-ab76aed47caa"
+name = "ethara/200ea06b-394e-52f4-9117-ab76aed47caa"
+version = "1.0.0"
+description = "Find a security defect in fastify, prove it with a regression test, and repair it."
+authors = [{ name = "Krishna Kaushal", email = "krishna.kaushal@ethara.ai" }]
+keywords = ["security", "typescript-javascript", "vulnerability-repair", "regression-test"]
+
+[metadata]
+null_floor = 0.0
+discrimination_weight = 0.5
+category = "Code Security"
+language = "typescript-javascript"
+repo = "https://github.com/fastify/fastify"
+base_commit = "93c239a380f3f2778bb7565fcdf777e91cfe1fbc"
+license = "MIT"
+platforms = ["linux/amd64", "linux/arm64"]
+harbor_release = "0.24.0"
+reward_carrier = "/logs/verifier/reward.json"
+reward_keys = ["deterministic_channel", "judged_channel", "reward"]
+graded_key = "reward"
+full_reward = 1.0
+
+[[metadata.deliverables]]
+id = "D1"
+path = "/output/200ea06b-394e-52f4-9117-ab76aed47caa_D1_reproducer.patch"
+schema = "unified diff relative to the repository root that adds or changes test files only"
+comparator = "its tests fail on the pristine tree with an assertion failure and all pass on the reference repair"
+depends_on = []
+
+[[metadata.deliverables]]
+id = "D2"
+path = "/output/200ea06b-394e-52f4-9117-ab76aed47caa_D2_repair.patch"
+schema = "unified diff relative to the repository root; only sections on the vulnerable source files are applied"
+comparator = "closes D1 and the withheld regression tests, keeps the pass-to-pass set, touches no protected path"
+depends_on = ["D1"]
+
+[agent]
+network_mode = "no-network"
+user = "1000"
+timeout_sec = 5400
+
+[environment]
+environment_mode = "separate"
+network_mode = "no-network"
+build_timeout_sec = 3600
+cpus = 2
+memory_mb = 6144
+storage_mb = 20480
+gpus = 0
+
+[verifier]
+entrypoint = "tests/test.sh"
+environment_mode = "separate"
+network_mode = "allowlist"
+allowed_hosts = ["api.anthropic.com"]
+timeout_sec = 5400
+reward_file = "/logs/verifier/reward.json"
+
+[verifier.env]
+ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY:-}"
+JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-claude-code}"
+JUDGE_MODEL = "${JUDGE_MODEL:-anthropic/claude-sonnet-4-5}"
+CLAUDE_CODE_OAUTH_TOKEN = "${CLAUDE_CODE_OAUTH_TOKEN:-}"
+
+[leak_gate]
+private_carriers = [
+    "solution/TRUTH.md",
+    "solution/fix.patch",
+    "solution/poc.bin",
+    "solution/crash.log",
+    "solution/solve.sh",
+    "tests/data/poc.bin",
+    "tests/validate.py",
+]
+agent_visible_roots = ["environment", "instruction.md"]
+ngram_width = 8
+containment_threshold = 0.3
+
+[rubric]
+judge_file = "tests/judge.toml"
+criteria_count = 21
+positive_weight = 38.0
+
+[upstream_provenance.source]
+fixed_commit = "f02d8d4ab1ab208f10819c4dc213595b06497833"

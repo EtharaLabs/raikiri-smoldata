@@ -1,0 +1,17 @@
+# Task config for this D1/D2 repair task.
+repo_to_patch = "fast-uri"
+
+# The reproduction and regression harness the helper scripts drive, installed read-only. The
+# grader runs in its own container and reads none of these, so an edit here changes no grade.
+#   /opt/harness/scripts/compile.sh   stage and build a copy of the project   (also build.sh)
+#   /opt/harness/scripts/run_poc.sh   run a D1 reproducer against a tree       (also run_poc.sh)
+#   /opt/harness/scripts/test.sh      run the project's own test suite         (also regression.sh)
+#   /opt/harness/scripts/mkpatch.sh   diff your edited tree against the original (also mkpatch.sh)
+immutable_files = [
+    "/opt/harness/config.toml",
+    "/opt/harness/install_validate_deps.sh",
+    "/opt/harness/scripts/compile.sh",
+    "/opt/harness/scripts/mkpatch.sh",
+    "/opt/harness/scripts/run_poc.sh",
+    "/opt/harness/scripts/test.sh",
+]

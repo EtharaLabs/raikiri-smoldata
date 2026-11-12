@@ -1,0 +1,1 @@
+SSRF bypass: http://2130706433/ (=127.0.0.1) accepted by security.http.urls deny rules

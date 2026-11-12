@@ -1,0 +1,196 @@
+# check-reproducer output: the reference reproducer (solution/poc.bin) run against
+# the unmodified tree in the agent image. Each listed test fails with an assertion.
+
+TAP version 13
+# Subtest: Ajv plugins array parameter
+ok 1 - Ajv plugins array parameter
+  ---
+  duration_ms: 61.569708
+  type: 'test'
+  ...
+# Subtest: Should handle root $merge keywords in header
+ok 2 - Should handle root $merge keywords in header
+  ---
+  duration_ms: 26.150968
+  type: 'test'
+  ...
+# Subtest: Should handle root $patch keywords in header
+ok 3 - Should handle root $patch keywords in header
+  ---
+  duration_ms: 24.605157
+  type: 'test'
+  ...
+# Subtest: Should handle $merge keywords in body
+ok 4 - Should handle $merge keywords in body
+  ---
+  duration_ms: 13.564332
+  type: 'test'
+  ...
+# Subtest: Should handle $patch keywords in body
+ok 5 - Should handle $patch keywords in body
+  ---
+  duration_ms: 14.140779
+  type: 'test'
+  ...
+# Subtest: serializer read validator's schemas
+ok 6 - serializer read validator's schemas
+  ---
+  duration_ms: 20.105093
+  type: 'test'
+  ...
+# Subtest: setSchemaController in a plugin
+ok 7 - setSchemaController in a plugin
+  ---
+  duration_ms: 11.842051
+  type: 'test'
+  ...
+# Subtest: side effect on schema let the server crash
+ok 8 - side effect on schema let the server crash
+  ---
+  duration_ms: 10.324696
+  type: 'test'
+  ...
+# Subtest: only response schema trigger AJV pollution
+ok 9 - only response schema trigger AJV pollution
+  ---
+  duration_ms: 11.848746
+  type: 'test'
+  ...
+# Subtest: only response schema trigger AJV pollution \#2
+ok 10 - only response schema trigger AJV pollution \#2
+  ---
+  duration_ms: 10.483935
+  type: 'test'
+  ...
+# Subtest: setSchemaController in a plugin with head routes
+ok 11 - setSchemaController in a plugin with head routes
+  ---
+  duration_ms: 9.587647
+  type: 'test'
+  ...
+# Subtest: multiple refs with the same ids
+ok 12 - multiple refs with the same ids
+  ---
+  duration_ms: 7.985219
+  type: 'test'
+  ...
+# Subtest: JOI validation overwrite request headers
+ok 13 - JOI validation overwrite request headers
+  ---
+  duration_ms: 4.068459
+  type: 'test'
+  ...
+# Subtest: Custom schema object should not trigger FST_ERR_SCH_DUPLICATE
+ok 14 - Custom schema object should not trigger FST_ERR_SCH_DUPLICATE
+  ---
+  duration_ms: 2.451455
+  type: 'test'
+  ...
+# Subtest: The default schema compilers should not be called when overwritten by the user
+ok 15 - The default schema compilers should not be called when overwritten by the user
+  ---
+  duration_ms: 7.994012
+  type: 'test'
+  ...
+# Subtest: Supports async JOI validation
+ok 16 - Supports async JOI validation
+  ---
+  duration_ms: 3.279135
+  type: 'test'
+  ...
+# Subtest: Supports async AJV validation
+ok 17 - Supports async AJV validation
+  ---
+  duration_ms: 13.863439
+  type: 'test'
+  ...
+# Subtest: async validation result must not replace the request body (value collision)
+not ok 18 - async validation result must not replace the request body (value collision)
+  ---
+  duration_ms: 9.730931
+  type: 'test'
+  location: '/tmp/tmp6t393iz0/fastify/test/schema-special-usage.test.js:943:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      {
+    +   hello: 'evil'
+    -   hello: 'world',
+    -   value: {
+    -     hello: 'evil'
+    -   }
+      }
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    hello: 'world'
+    value:
+      hello: 'evil'
+  actual:
+    hello: 'evil'
+  operator: 'deepStrictEqual'
+  stack: |-
+    assert.<computed> [as deepStrictEqual] (node:internal/test_runner/test:320:18)
+    TestContext.<anonymous> (/tmp/tmp6t393iz0/fastify/test/schema-special-usage.test.js:966:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: async validation result must not be treated as an error (error collision)
+not ok 19 - async validation result must not be treated as an error (error collision)
+  ---
+  duration_ms: 10.088263
+  type: 'test'
+  location: '/tmp/tmp6t393iz0/fastify/test/schema-special-usage.test.js:970:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    400 !== 200
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 200
+  actual: 400
+  operator: 'strictEqual'
+  stack: |-
+    assert.<computed> [as strictEqual] (node:internal/test_runner/test:320:18)
+    TestContext.<anonymous> (/tmp/tmp6t393iz0/fastify/test/schema-special-usage.test.js:992:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: Check all the async AJV validation paths
+ok 20 - Check all the async AJV validation paths
+  ---
+  duration_ms: 10.518794
+  type: 'test'
+  ...
+# Subtest: Check mixed sync and async AJV validations
+ok 21 - Check mixed sync and async AJV validations
+  ---
+  duration_ms: 11.070735
+  type: 'test'
+  ...
+# Subtest: Check if hooks and attachValidation work with AJV validations
+ok 22 - Check if hooks and attachValidation work with AJV validations
+  ---
+  duration_ms: 9.657383
+  type: 'test'
+  ...
+1..22
+# tests 22
+# suites 0
+# pass 20
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 450.164582
+
+exit 1; assertion failures on the unmodified tree: 2
+  Subtest: async validation result must not replace the request body (value collision)::async validation result must not replace the request body (value collision)
+  Subtest: async validation result must not be treated as an error (error collision)::async validation result must not be treated as an error (error collision)

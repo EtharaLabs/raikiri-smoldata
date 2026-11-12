@@ -1,0 +1,103 @@
+diff --git a/lib/validation.js b/lib/validation.js
+index 257d4dd..e342608 100644
+--- a/lib/validation.js
++++ b/lib/validation.js
+@@ -70,9 +70,14 @@ function compileSchemasForSerialization (context, compile) {
+ // reachable through `allOf`, `anyOf`, `oneOf`, `not`, `if`/`then`/`else`, local
+ // `$ref` definitions (`definitions`/`$defs`), and the other standard subschema
+ // containers. The input schema is never mutated: a new schema tree is returned.
+-function lowerCaseHeadersSchema (schema) {
++//
++// A `propertyNames` subschema validates each header name itself, so values held
++// in `enum` and `const` (and in every subschema reachable from it) are header
++// names rather than header values. `insidePropertyNames` tracks that context so
++// those `enum`/`const` string values are lowercased there, and only there.
++function lowerCaseHeadersSchema (schema, insidePropertyNames = false) {
+   if (Array.isArray(schema)) {
+-    return schema.map(lowerCaseHeadersSchema)
++    return schema.map(item => lowerCaseHeadersSchema(item, insidePropertyNames))
+   }
+   if (schema === null || typeof schema !== 'object') {
+     return schema
+@@ -91,7 +96,7 @@ function lowerCaseHeadersSchema (schema) {
+         }
+         const normalized = {}
+         for (const prop of Object.keys(value)) {
+-          normalized[prop.toLowerCase()] = lowerCaseHeadersSchema(value[prop])
++          normalized[prop.toLowerCase()] = lowerCaseHeadersSchema(value[prop], insidePropertyNames)
+         }
+         result.properties = normalized
+         break
+@@ -112,7 +117,7 @@ function lowerCaseHeadersSchema (schema) {
+           if (Array.isArray(depValue)) {
+             normalized[dep.toLowerCase()] = depValue.map(name => name.toLowerCase())
+           } else {
+-            normalized[dep.toLowerCase()] = lowerCaseHeadersSchema(depValue)
++            normalized[dep.toLowerCase()] = lowerCaseHeadersSchema(depValue, insidePropertyNames)
+           }
+         }
+         result.dependencies = normalized
+@@ -125,7 +130,7 @@ function lowerCaseHeadersSchema (schema) {
+         }
+         const normalized = {}
+         for (const dep of Object.keys(value)) {
+-          normalized[dep.toLowerCase()] = lowerCaseHeadersSchema(value[dep])
++          normalized[dep.toLowerCase()] = lowerCaseHeadersSchema(value[dep], insidePropertyNames)
+         }
+         result.dependentSchemas = normalized
+         break
+@@ -158,9 +163,11 @@ function lowerCaseHeadersSchema (schema) {
+       case 'unevaluatedItems':
+       case 'unevaluatedProperties':
+       case 'contains':
+-      case 'propertyNames':
+       case 'contentSchema':
+-        result[key] = lowerCaseHeadersSchema(value)
++        result[key] = lowerCaseHeadersSchema(value, insidePropertyNames)
++        break
++      case 'propertyNames':
++        result[key] = lowerCaseHeadersSchema(value, true)
+         break
+       // Maps of subschemas whose keys are not header names (definition names,
+       // regex patterns): keep the keys, normalize the subschema values.
+@@ -173,13 +180,23 @@ function lowerCaseHeadersSchema (schema) {
+         }
+         const normalized = {}
+         for (const k of Object.keys(value)) {
+-          normalized[k] = lowerCaseHeadersSchema(value[k])
++          normalized[k] = lowerCaseHeadersSchema(value[k], insidePropertyNames)
+         }
+         result[key] = normalized
+         break
+       }
+       default:
+-        result[key] = value
++        // Inside a `propertyNames` subschema, `enum` and `const` values are the
++        // candidate header names themselves, so they must be lowercased to match
++        // the lowercased request headers. Everywhere else these hold header
++        // *values* (or arbitrary constant data) and must be left untouched.
++        if (insidePropertyNames && key === 'enum' && Array.isArray(value)) {
++          result[key] = value.map(item => typeof item === 'string' ? item.toLowerCase() : item)
++        } else if (insidePropertyNames && key === 'const' && typeof value === 'string') {
++          result[key] = value.toLowerCase()
++        } else {
++          result[key] = value
++        }
+     }
+   }
+ 
+@@ -305,8 +322,13 @@ function validateParam (validatorFunction, request, paramName) {
+   }
+ 
+   if (ret && typeof ret.then === 'function') {
++    // An async validator (for example an `$async` Ajv schema) resolves with the
++    // validated data itself, not a `{ value, error }` result. Its properties must
++    // not be unwrapped the way a synchronous custom compiler result is, otherwise
++    // a payload carrying an `error` or `value` key could inject a validation error
++    // or replace the whole request part. Treat the async result as pass/fail only.
+     return ret
+-      .then((res) => { return answer(res) })
++      .then((res) => { return res === false ? validatorFunction.errors : false })
+       .catch(err => { return err }) // return as simple error (not throw)
+   }
+ 

@@ -1,0 +1,94 @@
+schema_version = "1.4"
+reward_type = "bounded_continuous"
+mode = "e2e"
+artifacts = ["/output/poc.bin", "/output/fix.patch", "/logs/agent/trajectory.json"]
+[task]
+uuid_v5 = "01a096f0-c303-5ccb-aefb-126ac0415889"
+authors = [{ name = "Krishna Kaushal", email = "krishna.kaushal@ethara.ai" }]
+name = "ethara/01a096f0-c303-5ccb-aefb-126ac0415889"
+description = "Diagnose and patch an SSRF vulnerability in a Go static site generator URL security policy [e2e]."
+version = "1.0.0"
+keywords = ["security", "e2e", "hugo", "go"]
+[agent]
+network_mode = "no-network"
+timeout_sec = 5400
+workspace = "/root/workspace"
+user = "root"
+[environment]
+dockerfile = "environment/Dockerfile"
+network_mode = "no-network"
+build_timeout_sec = 3600.0
+config = "environment/config/config.toml"
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+environment_mode = "separate"
+[verifier]
+# The deterministic pytest channel needs no network. The rubric judge does: the
+# claude-code judge calls api.anthropic.com, so the verifier runs under an
+# allowlist limited to that endpoint. The agent and the environment stay offline.
+network_mode = "allowlist"
+allowed_hosts = ["api.anthropic.com"]
+timeout_sec = 3600
+entrypoint = "tests/test.sh"
+reward_file = "/logs/verifier/reward.json"
+environment_mode = "separate"
+[verifier.env]
+ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY:-}"
+CLAUDE_CODE_OAUTH_TOKEN = "${CLAUDE_CODE_OAUTH_TOKEN:-}"
+JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-claude-code}"
+JUDGE_MODEL = "${JUDGE_MODEL:-anthropic/claude-sonnet-4-5}"
+
+[verifier.weights]
+file = "tests/test_weights.json"
+normalize = "component_weighted_mean"
+clamp = [-1.0, 1.0]
+[verifier.robustness]
+stability_trials = 2
+flakiness_trials = 2
+[rubric]
+file = "tests/judge.toml"
+judge_format = "harbor-reward-kit"
+criteria_count = 19
+positive_weight = 34
+[metadata]
+difficulty = "expert"
+difficulty_explanation = "Set from the D9 trajectory under the grader in use at the time (its rubric judge has since been replaced by Claude Sonnet 4.5): claude-opus-4-8 pass@1 trial EScWdbe reward 0.2271 (pytest 0.0857, rubric 0.3684), below the 0.7 threshold, 0 of 1 runs passed. GLM 5.3 and pass@8 runs pending."
+mode = "e2e"
+language = "go"
+task_id = "01a096f0-c303-5ccb-aefb-126ac0415889"
+category = "Security"
+subcategory = "Vulnerability repair"
+family = "real-source-reproducer"
+kind = "repro-program"
+tags = ["e2e", "hugo", "go"]
+repo = "https://github.com/gohugoio/hugo"
+platforms = ["linux/amd64", "linux/arm64"]
+null_floor = 0.0
+discrimination_weight = 0.5
+[leak_gate]
+private_carriers = ["solution/TRUTH.md", "solution/fix.patch", "solution/poc.bin", "solution/crash.log", "tests/data/poc.bin"]
+agent_visible_roots = ["environment", "instruction.md"]
+ngram_width = 8
+normalization = "casefold; collapse all runs of non-alphanumeric to a single space; strip leading and trailing space"
+containment_threshold = 0.30
+[upstream_provenance]
+origin = "derived"
+provenance_date = "2026-10-27"
+source_kind = "public_repository"
+license = "Apache-2.0"
+modifications = [
+    "Extracted an upstream Hugo source snapshot into environment/src.tgz and pre-populated the Go module cache in the image for offline builds.",
+    "Removed the upstream git history so the staged source tree at /src carries no .git object database.",
+    "Authored a task-specific judge (tests/validate.py) that runs a submitted Go reproducer against a staged tree and reports a verdict.",
+    "Authored a verifier entrypoint at tests/test.sh and the weighted oracle tests/test_output.py with tests/test_weights.json.",
+    "Selected a withheld reproducer at tests/data/poc.bin and embedded variant, resolved-host and preservation programs in tests/test_output.py, all distinct from the reference reproducer at solution/poc.bin.",
+    "Authored the judged rubric tests/judge.toml.",
+    "The graded repair design deliberately exceeds the upstream fix. Upstream closed the numeric-encoding bypass in gohugoio/hugo commit a00b5c72ac57afe26df6688ece3ca544a56df372 with a canonical dotted-decimal re-check alone, and closed the mixed-case scheme bypass in commit 24d5e42ffa33eebdf906c495713f0d2bae30c0cb with a case-insensitive deny rule plus public-address classification of an already-resolved address at dial time; neither upstream commit adds host-name resolution to the policy check, and no such mechanism exists in config/security/securityConfig.go at any point in that project's history. This task additionally requires a resolution-time screen for the default policy, graded by test_patched_resolved_host_poc_neutralized and test_patched_internal_name_classes_neutralized (10 of 37 positive points) and by rubric rows R5 through R9 (about 44 percent of the positive rubric weight). A repair faithful only to the two upstream commits therefore does not reach the full reward.",
+]
+[upstream_provenance.source]
+canonical_repo = "https://github.com/gohugoio/hugo"
+base_commit = "cf9c8f93ca2a2838ce378f9e36d052ac2f79e229"
+event_timestamp = "2026-10-27T00:00:00Z"
+fixed_commit = "a00b5c72ac57afe26df6688ece3ca544a56df372"

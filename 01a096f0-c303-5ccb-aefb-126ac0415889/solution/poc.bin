@@ -1,0 +1,28 @@
+package main
+
+import (
+    "fmt"
+    "os"
+
+    "github.com/gohugoio/hugo/config"
+    "github.com/gohugoio/hugo/config/security"
+)
+
+func main() {
+    // Default Hugo config denies loopback IPs
+    pc, err := security.DecodeConfig(config.New())
+    if err != nil {
+        fmt.Println("ERROR:", err)
+        os.Exit(2)
+    }
+
+    // Integer encoding of 127.0.0.1 = 2130706433
+    err = pc.CheckAllowedHTTPURL("http://2130706433/")
+    if err == nil {
+        fmt.Println("CRASH: SSRF bypass - integer IPv4 http://2130706433/ accepted")
+        os.Exit(1)
+    }
+
+    fmt.Println("CLEAN: integer IPv4 correctly denied")
+    os.Exit(0)
+}

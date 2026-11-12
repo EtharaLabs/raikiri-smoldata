@@ -1,0 +1,204 @@
+diff --git a/config/security/securityConfig.go b/config/security/securityConfig.go
+index 9818fd1..649b0ab 100644
+--- a/config/security/securityConfig.go
++++ b/config/security/securityConfig.go
+@@ -15,12 +15,18 @@ package security
+ 
+ import (
+ 	"bytes"
++	"context"
+ 	"encoding/json"
+ 	"errors"
+ 	"fmt"
++	"net"
++	"net/netip"
++	"net/url"
+ 	"reflect"
+ 	"slices"
++	"strconv"
+ 	"strings"
++	"time"
+ 
+ 	"github.com/gohugoio/hugo/common/herrors"
+ 	"github.com/gohugoio/hugo/common/types"
+@@ -58,7 +64,7 @@ var DefaultConfig = Config{
+ 		// blocks; users who need them can override security.http.urls.
+ 		URLs: MustNewWhitelist(
+ 			`(?i)^https?://[a-z0-9]`,
+-			`! ^https?://\d+\.`,
++			`! (?i)^https?://\d+\.`,
+ 			`! (?i)localhost`,
+ 			`! (?i)^https?://[^/?#]*@`,
+ 		),
+@@ -189,17 +195,155 @@ func (c Config) CheckAllowedGetEnv(name string) error {
+ 	return nil
+ }
+ 
+-func (c Config) CheckAllowedHTTPURL(url string) error {
+-	if !c.HTTP.URLs.Accept(url) {
++func (c Config) CheckAllowedHTTPURL(u string) error {
++	deny := func(name string) error {
+ 		return &AccessDeniedError{
+-			name:     url,
++			name:     name,
+ 			path:     "security.http.urls",
+ 			policies: c.ToTOML(),
+ 		}
+ 	}
++	if !c.HTTP.URLs.Accept(u) {
++		return deny(u)
++	}
++	// A host can be written as an integer/hex/octal IPv4 literal
++	// (e.g. http://2130706433/ == http://127.0.0.1/) that has no dot and
++	// thus slips past IP-literal deny rules. Re-check the canonical form so
++	// the policy treats every encoding of the same address alike.
++	if canon, ok := canonicalIPv4URL(u); ok && !c.HTTP.URLs.Accept(canon) {
++		return deny(u)
++	}
++	// The default policy matches host names textually, so a name that
++	// resolves to a loopback, private, link-local or unspecified address
++	// (an /etc/hosts alias, a DNS record pointing inside the network)
++	// reaches the very hosts the policy blocks. Judge the default policy on
++	// where the name actually points. An explicit user policy is left alone:
++	// the user may deliberately allow such hosts.
++	if c.usesDefaultHTTPURLPolicy() && resolvesToBlockedAddr(u) {
++		return deny(u)
++	}
+ 	return nil
+ }
+ 
++// usesDefaultHTTPURLPolicy reports whether security.http.urls is the
++// built-in default rather than a user-supplied policy.
++func (c Config) usesDefaultHTTPURLPolicy() bool {
++	return slices.Equal(c.HTTP.URLs.patternsStrings, DefaultConfig.HTTP.URLs.patternsStrings)
++}
++
++// hostLookupTimeout bounds the resolution of a URL host name.
++const hostLookupTimeout = 2 * time.Second
++
++// resolvesToBlockedAddr reports whether the host name in rawURL resolves to
++// an address the default policy blocks. IP literals are left to the policy
++// itself; a name that cannot be resolved is not blocked here, because the
++// request could not reach any host either.
++func resolvesToBlockedAddr(rawURL string) bool {
++	pu, err := url.Parse(rawURL)
++	if err != nil {
++		return false
++	}
++	host := pu.Hostname()
++	if host == "" {
++		return false
++	}
++	if _, err := netip.ParseAddr(host); err == nil {
++		return false
++	}
++	if _, ok := parseInetAtonIPv4(host); ok {
++		return false
++	}
++	ctx, cancel := context.WithTimeout(context.Background(), hostLookupTimeout)
++	defer cancel()
++	addrs, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
++	if err != nil {
++		return false
++	}
++	for _, a := range addrs {
++		a = a.Unmap()
++		if a.IsLoopback() || a.IsPrivate() || a.IsUnspecified() ||
++			a.IsLinkLocalUnicast() || a.IsLinkLocalMulticast() || a.IsInterfaceLocalMulticast() {
++			return true
++		}
++	}
++	return false
++}
++
++// canonicalIPv4URL rewrites an integer/hex/octal IPv4 host in rawURL to its
++// canonical dotted-decimal form (inet_aton semantics), returning ok=false when
++// the host is a normal name or already dotted-decimal.
++func canonicalIPv4URL(rawURL string) (string, bool) {
++	u, err := url.Parse(rawURL)
++	if err != nil {
++		return "", false
++	}
++	host := u.Hostname()
++	ip, ok := parseInetAtonIPv4(host)
++	if !ok || ip.String() == host {
++		return "", false
++	}
++	if port := u.Port(); port != "" {
++		u.Host = ip.String() + ":" + port
++	} else {
++		u.Host = ip.String()
++	}
++	return u.String(), true
++}
++
++// parseInetAtonIPv4 parses the inet_aton IPv4 forms (1–4 dot-separated parts,
++// each decimal, octal "0..." or hex "0x..."), e.g. "2130706433", "0x7f.0.0.1".
++func parseInetAtonIPv4(host string) (netip.Addr, bool) {
++	if host == "" {
++		return netip.Addr{}, false
++	}
++	parts := strings.Split(host, ".")
++	if len(parts) > 4 {
++		return netip.Addr{}, false
++	}
++	vals := make([]uint64, len(parts))
++	for i, p := range parts {
++		v, ok := parseCInt(p)
++		if !ok {
++			return netip.Addr{}, false
++		}
++		vals[i] = v
++	}
++	maxLast := []uint64{0xffffffff, 0xffffff, 0xffff, 0xff}[len(parts)-1]
++	var n uint64
++	for i, v := range vals {
++		if i == len(parts)-1 {
++			if v > maxLast {
++				return netip.Addr{}, false
++			}
++			n |= v
++		} else {
++			if v > 0xff {
++				return netip.Addr{}, false
++			}
++			n |= v << (8 * (3 - i))
++		}
++	}
++	return netip.AddrFrom4([4]byte{byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n)}), true
++}
++
++func parseCInt(s string) (uint64, bool) {
++	base := 10
++	switch {
++	case len(s) >= 2 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X'):
++		base, s = 16, s[2:]
++	case len(s) >= 2 && s[0] == '0':
++		base, s = 8, s[1:]
++	}
++	if s == "" {
++		return 0, false
++	}
++	v, err := strconv.ParseUint(s, base, 64)
++	if err != nil {
++		return 0, false
++	}
++	return v, true
++}
++
+ func (c Config) CheckAllowedHTTPMethod(method string) error {
+ 	if !c.HTTP.Methods.Accept(method) {
+ 		return &AccessDeniedError{
+diff --git a/config/security/securityConfig_test.go b/config/security/securityConfig_test.go
+index 37ecaab..0b4b1f1 100644
+--- a/config/security/securityConfig_test.go
++++ b/config/security/securityConfig_test.go
+@@ -135,7 +135,7 @@ func TestToTOML(t *testing.T) {
+ 	got := DefaultConfig.ToTOML()
+ 
+ 	c.Assert(got, qt.Equals,
+-		"[security]\n  allowContent = ['! ^text/html$']\n  enableInlineShortcodes = false\n\n  [security.exec]\n    allow = ['^(dart-)?sass(-embedded)?$', '^go$', '^git$', '^node$', '^postcss$', '^tailwindcss$']\n    osEnv = ['(?i)^((HTTPS?|NO)_PROXY|PATH(EXT)?|APPDATA|TE?MP|TERM|GO\\w+|(XDG_CONFIG_)?HOME|USERPROFILE|SSH_AUTH_SOCK|DISPLAY|LANG|SYSTEMDRIVE|PROGRAMDATA)$']\n\n  [security.funcs]\n    getenv = ['^HUGO_', '^CI$']\n\n  [security.http]\n    methods = ['(?i)GET|POST']\n    urls = ['(?i)^https?://[a-z0-9]', '! ^https?://\\d+\\.', '! (?i)localhost', '! (?i)^https?://[^/?#]*@']\n\n  [security.node]\n    [security.node.permissions]\n      allowAddons = ['tailwindcss']\n      allowChildProcess = ['tailwindcss']\n      allowRead = ['.']\n      allowWorker = ['tailwindcss']\n      allowWrite = []\n      disable = false",
++		"[security]\n  allowContent = ['! ^text/html$']\n  enableInlineShortcodes = false\n\n  [security.exec]\n    allow = ['^(dart-)?sass(-embedded)?$', '^go$', '^git$', '^node$', '^postcss$', '^tailwindcss$']\n    osEnv = ['(?i)^((HTTPS?|NO)_PROXY|PATH(EXT)?|APPDATA|TE?MP|TERM|GO\\w+|(XDG_CONFIG_)?HOME|USERPROFILE|SSH_AUTH_SOCK|DISPLAY|LANG|SYSTEMDRIVE|PROGRAMDATA)$']\n\n  [security.funcs]\n    getenv = ['^HUGO_', '^CI$']\n\n  [security.http]\n    methods = ['(?i)GET|POST']\n    urls = ['(?i)^https?://[a-z0-9]', '! (?i)^https?://\\d+\\.', '! (?i)localhost', '! (?i)^https?://[^/?#]*@']\n\n  [security.node]\n    [security.node.permissions]\n      allowAddons = ['tailwindcss']\n      allowChildProcess = ['tailwindcss']\n      allowRead = ['.']\n      allowWorker = ['tailwindcss']\n      allowWrite = []\n      disable = false",
+ 	)
+ }
+ 

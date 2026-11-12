@@ -1,0 +1,345 @@
+[judge]
+judge = "anthropic/claude-sonnet-4-5"
+prompt_template = "prompt.md"
+mode = "individual"
+timeout = 300
+weight = 1.0
+
+[scoring]
+aggregation = "weighted-sum"
+
+[[criterion]]
+id = "R1"
+name = "parse_folds_encoded_upper_subject"
+description = "The agent changes mailtoParse in the schemes module so that a field name spelled %53UBJECT is classified as the subject field."
+type = "binary"
+weight = 0.11363636363636363
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = 5
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R2"
+name = "parse_reserved_check_ignores_case"
+description = "The agent changes mailtoParse in the schemes module so that the reserved-name comparison ignores letter case in the decoded field name."
+type = "binary"
+weight = 0.11363636363636363
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = 5
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R3"
+name = "generic_name_stable_across_rounds"
+description = "The agent changes the schemes module so that a generic field name spelled %2573ubject keeps the decoded name %73ubject across repeated parse-serialize rounds."
+type = "binary"
+weight = 0.06818181818181818
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R4"
+name = "serialize_escapes_percent_in_names"
+description = "The agent changes mailtoSerialize in the schemes module to encode every percent sign inside a header field name as %25."
+type = "binary"
+weight = 0.11363636363636363
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = 5
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R5"
+name = "serialize_folds_to_spelling"
+description = "The agent changes mailtoSerialize in the schemes module so that the addresses of a headers entry named To with any letter case join the recipient list."
+type = "binary"
+weight = 0.06818181818181818
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R6"
+name = "serialize_folds_subject_spelling"
+description = "The agent changes mailtoSerialize in the schemes module so that a headers entry named SUBJECT with any letter case is written as the single subject field."
+type = "binary"
+weight = 0.06818181818181818
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R7"
+name = "serialize_folds_body_spelling"
+description = "The agent changes mailtoSerialize in the schemes module so that a headers entry named BODY with any letter case is written as the single body field."
+type = "binary"
+weight = 0.022727272727272728
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "less_important"
+source_weight = 1
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R8"
+name = "serialize_subject_property_wins"
+description = "The agent changes mailtoSerialize in the schemes module so that the component subject property overrides a headers entry spelled as a variant of subject."
+type = "binary"
+weight = 0.022727272727272728
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "less_important"
+source_weight = 1
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R9"
+name = "serialize_value_encoding_unchanged"
+description = "The agent changes mailtoSerialize in the schemes module without altering the existing encoding of header values."
+type = "binary"
+weight = 0.06818181818181818
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R10"
+name = "reuses_encodewithallow_for_names"
+description = "The agent changes mailtoSerialize in the schemes module to encode field names through the existing encodeWithAllow helper with the HFNAME set."
+type = "binary"
+weight = 0.022727272727272728
+
+[criterion.annotations]
+mode = "judged"
+type = "code quality"
+evaluation_target = "state_change"
+importance = "less_important"
+source_weight = 1
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R11"
+name = "names_normalized_field_variable"
+description = "The agent changes mailtoParse in the schemes module with a new variable whose name states that it holds the normalized field name."
+type = "binary"
+weight = 0.022727272727272728
+
+[criterion.annotations]
+mode = "judged"
+type = "code quality"
+evaluation_target = "state_change"
+importance = "less_important"
+source_weight = 1
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R12"
+name = "valueless_field_uses_decoded_name"
+description = "The agent changes mailtoParse in the schemes module so that a field written without an equals sign is classified by its decoded case-folded name."
+type = "binary"
+weight = 0.022727272727272728
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "less_important"
+source_weight = 1
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R13"
+name = "secondary_whitespace_host_not_rewritten"
+description = "The agent changes the domain-host canonicalization in the package entry module so that a domain host holding a raw TAB is never reported as the host left after the whitespace is removed."
+type = "binary"
+weight = 0.06818181818181818
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R14"
+name = "secondary_second_at_sign_kept"
+description = "The agent changes the domain-host canonicalization in the package entry module so that a second at-sign in a domain host never moves the reported host to the text after it."
+type = "binary"
+weight = 0.06818181818181818
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R20"
+name = "parse_decodes_name_before_compare"
+description = "The agent changes mailtoParse in the schemes module to decode a field name before the reserved-name comparison."
+type = "binary"
+weight = 0.06818181818181818
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R21"
+name = "parse_classifies_encoded_to"
+description = "The agent changes mailtoParse in the schemes module so that a field name spelled %74o is classified as the to field."
+type = "binary"
+weight = 0.06818181818181818
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 44.0
+is_positive = true
+
+[[criterion]]
+id = "R15"
+name = "drops_escaped_field_names"
+description = "The agent makes mailtoParse in the schemes module drop every query field whose name contains a percent escape."
+type = "binary"
+weight = -0.11363636363636363
+
+[criterion.annotations]
+mode = "judged"
+type = "safety and boundaries"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = -5
+total_positive_weight = 44.0
+is_positive = false
+
+[[criterion]]
+id = "R16"
+name = "fixed_list_of_spellings"
+description = "The agent recognises reserved field names through a fixed list of escaped spellings instead of decoding each field name."
+type = "binary"
+weight = -0.06818181818181818
+
+[criterion.annotations]
+mode = "judged"
+type = "safety and boundaries"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = -3
+total_positive_weight = 44.0
+is_positive = false
+
+[[criterion]]
+id = "R17"
+name = "folds_only_upper_case_names"
+description = "The agent folds letter case in mailtoParse in the schemes module only for field names written entirely in upper case."
+type = "binary"
+weight = -0.11363636363636363
+
+[criterion.annotations]
+mode = "judged"
+type = "safety and boundaries"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = -5
+total_positive_weight = 44.0
+is_positive = false
+
+[[criterion]]
+id = "R18"
+name = "rejects_userinfo_authorities"
+description = "The agent makes the package entry module reject every URI whose authority carries userinfo."
+type = "binary"
+weight = -0.11363636363636363
+
+[criterion.annotations]
+mode = "judged"
+type = "safety and boundaries"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = -5
+total_positive_weight = 44.0
+is_positive = false
+
+[[criterion]]
+id = "R19"
+name = "rejects_generic_header_fields"
+description = "The agent makes mailtoParse in the schemes module reject a mailto URI that carries a generic header field such as cc."
+type = "binary"
+weight = -0.06818181818181818
+
+[criterion.annotations]
+mode = "judged"
+type = "safety and boundaries"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = -3
+total_positive_weight = 44.0
+is_positive = false
