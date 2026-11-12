@@ -105,5 +105,5 @@ RUN set -eux; \
     install -d -o 1000 -g 1000 -m 0755 /home/agent/.cache /home/agent/.config /home/agent/.local; \
     chown 1000:1000 /home/agent/.cache; chown -R 1000:1000 /home/agent/.config /home/agent/.local
 
-USER 1000:1000
+USER root
 CMD ["/bin/bash"]
