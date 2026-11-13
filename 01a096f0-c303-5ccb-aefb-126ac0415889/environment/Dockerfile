@@ -1,23 +1,28 @@
 # syntax=docker/dockerfile:1.12.1@sha256:93bfd3b68c109427185cd78b4779fc82b484b0b7618e36d0f104d4d801e66d25
 # hugo: pinned source snapshot and offline Go module cache for this task.
-# Multi-architecture by explicit dispatch, matching the rest of the
-# corpus: the base is pinned by its index digest so linux/amd64 and
-# linux/arm64 resolve to the same published release rather than to
-# whatever the tag happens to point at today.
-ARG TARGETARCH
-
-FROM --platform=linux/amd64 golang@sha256:632dff7351799a5a9954a48dc06670ade72ee44e8c351cdc0e5a57af2fea21af AS base-amd64
-FROM --platform=linux/arm64 golang@sha256:632dff7351799a5a9954a48dc06670ade72ee44e8c351cdc0e5a57af2fea21af AS base-arm64
-FROM base-${TARGETARCH}
+# Multi-architecture through one index digest: the golang base is pinned by its
+# multi-arch index digest (linux/amd64 + linux/arm64 among others), so every
+# builder (BuildKit or Kaniko) resolves the build platform's manifest of the same
+# published release, with no TARGETARCH stage dispatch.
+FROM golang@sha256:632dff7351799a5a9954a48dc06670ade72ee44e8c351cdc0e5a57af2fea21af
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive
 # Grading runs with no network, so the toolchain must never reach for one.
 ENV GOFLAGS=-mod=mod GOTOOLCHAIN=local GOPROXY=off
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        git patch diffutils curl ca-certificates python3 python3-pip python3-venv \
-    && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir --break-system-packages pytest
+# apt resolves against a fixed snapshot.debian.org date, with the three bookworm suites the
+# base image itself uses (main, -updates, -security). The base was built 2026-10-21, so the
+# snapshot must postdate it; these exact versions then stay installable.
+RUN . /etc/os-release \
+ && rm -f /etc/apt/sources.list.d/debian.sources \
+ && printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261101T000000Z %s main\ndeb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261101T000000Z %s-updates main\ndeb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20261101T000000Z %s-security main\n' "$VERSION_CODENAME" "$VERSION_CODENAME" "$VERSION_CODENAME" > /etc/apt/sources.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+        git=1:2.39.5-0+deb12u3 patch=2.7.6-7 diffutils=1:3.8-4 curl=7.88.1-10+deb12u15 \
+        ca-certificates=20250419~deb12u2 python3=3.11.2-1+b1 python3-pip=23.0.1+dfsg-1 python3-venv=3.11.2-1+b1 \
+ && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir --break-system-packages "pytest==8.3.5"
 
 COPY src.tgz /opt/harness/src.tgz
 RUN mkdir -p /src && tar xzf /opt/harness/src.tgz -C /src
@@ -30,9 +35,8 @@ RUN GOPROXY=https://proxy.golang.org,direct go mod download all \
 
 COPY scripts/ /opt/harness/scripts/
 COPY config/config.toml /opt/harness/config.toml
-RUN chmod +x /opt/harness/scripts/*
-
-RUN mkdir -p /output /logs/verifier /root/workspace
+RUN chmod +x /opt/harness/scripts/* \
+ && mkdir -p /output /logs/verifier /root/workspace
 # ---------------------------------------------------------------------------
 # Prebaked OpenHands-SDK agent runtime.
 #
@@ -61,4 +65,5 @@ RUN set -eux; \
     rm -rf /root/.cache/uv /tmp/uv-*.lock
 
 WORKDIR /root/workspace
+USER 0
 CMD ["/bin/bash"]

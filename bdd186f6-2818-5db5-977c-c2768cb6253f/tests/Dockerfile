@@ -7,7 +7,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /fetch
 RUN . /etc/os-release \
  && rm -f /etc/apt/sources.list.d/debian.sources \
- && printf "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261001T000000Z $VERSION_CODENAME main\n" > /etc/apt/sources.list \
+ && printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261001T000000Z %s main\n' "$VERSION_CODENAME" > /etc/apt/sources.list \
  && apt-get update \
  && apt-get install -y --no-install-recommends git=1:2.47.3-0+deb13u1 \
  && rm -rf /var/lib/apt/lists/*
@@ -15,8 +15,8 @@ COPY validate.py ./
 RUN python3 validate.py --materialize-build-assets .
 RUN base64 -d src.tgz.b64 > src.tgz \
  && mkdir -p /grade && tar -xzf src.tgz -C /grade \
- && cd /grade/v4 && git init -q . && git add -A \
- && git -c user.email=grader@localhost -c user.name=grader commit -q -m pristine
+ && git -C /grade/v4 init -q . && git -C /grade/v4 add -A \
+ && git -C /grade/v4 -c user.email=grader@localhost -c user.name=grader commit -q -m pristine
 
 FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.25.7@sha256:5a79b94c34c299ac0361fbb7c7fca6dc552e166b42341050323fa3ab137d7be9 AS gomod
 ARG TARGETOS
@@ -24,7 +24,8 @@ ARG TARGETARCH
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /fetch
 COPY --from=tree /grade/v4 /fetch/tree
-RUN mkdir -p /gomod && cd /fetch/tree/. && GOMODCACHE=/gomod GOFLAGS=-mod=mod go mod download
+WORKDIR /fetch/tree
+RUN mkdir -p /gomod && GOMODCACHE=/gomod GOFLAGS=-mod=mod go mod download
 
 FROM docker.io/library/golang:1.25.7@sha256:5a79b94c34c299ac0361fbb7c7fca6dc552e166b42341050323fa3ab137d7be9 AS go
 
@@ -32,7 +33,7 @@ FROM docker.io/library/python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN . /etc/os-release \
  && rm -f /etc/apt/sources.list.d/debian.sources \
- && printf "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261001T000000Z $VERSION_CODENAME main\n" > /etc/apt/sources.list \
+ && printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261001T000000Z %s main\n' "$VERSION_CODENAME" > /etc/apt/sources.list \
  && apt-get update \
  && apt-get install -y --no-install-recommends git=1:2.47.3-0+deb13u1 patch=2.8-2 gcc=4:14.2.0-1 libc6-dev=2.41-12+deb13u4 \
  && rm -rf /var/lib/apt/lists/*
@@ -51,7 +52,7 @@ RUN pip install --no-cache-dir "pytest==8.3.5"
 # Verifier reward toolchain (ported to the reference contract).
 # RewardKit grades the ported tests/reward/ channels; the claude CLI hosts the Sonnet judge.
 # --------------------------------------------------------------------------- #
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends curl=8.14.1-2+deb13u5 ca-certificates=20250419 \
     && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://astral.sh/uv/0.13.5/install.sh \
       | env UV_INSTALL_DIR=/usr/local/bin sh \
@@ -105,5 +106,5 @@ LABEL org.opencontainers.image.source="https://github.com/argoproj/argo-workflow
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.base.name="docker.io/library/python:3.12-slim" \
       org.opencontainers.image.base.digest="sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f"
-USER root
+USER 0
 CMD ["/bin/bash"]

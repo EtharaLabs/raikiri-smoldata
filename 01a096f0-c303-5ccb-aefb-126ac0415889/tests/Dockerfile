@@ -8,18 +8,27 @@
 # are written back out by `validate.py --materialize` at build time, which is
 # how the canonical bundles keep to the required tests/ file set.
 #
-ARG TARGETARCH
-
-FROM --platform=linux/amd64 golang@sha256:632dff7351799a5a9954a48dc06670ade72ee44e8c351cdc0e5a57af2fea21af AS base-amd64
-FROM --platform=linux/arm64 golang@sha256:632dff7351799a5a9954a48dc06670ade72ee44e8c351cdc0e5a57af2fea21af AS base-arm64
-FROM base-${TARGETARCH}
+# The golang base is pinned by its multi-arch index digest (linux/amd64 +
+# linux/arm64 among others), so BuildKit and Kaniko both resolve the build
+# platform's manifest of the same release, with no TARGETARCH stage dispatch.
+FROM golang@sha256:632dff7351799a5a9954a48dc06670ade72ee44e8c351cdc0e5a57af2fea21af
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV GOFLAGS=-mod=mod GOTOOLCHAIN=local GOPROXY=off
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        git patch diffutils python3 python3-pip python3-venv curl ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir --break-system-packages pytest
+# apt resolves against a fixed snapshot.debian.org date, with the three bookworm suites the
+# base image itself uses (main, -updates, -security). The base was built 2026-10-21, so the
+# snapshot must postdate it; these exact versions then stay installable. curl also serves the
+# uv/Node downloads below.
+RUN . /etc/os-release \
+ && rm -f /etc/apt/sources.list.d/debian.sources \
+ && printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261101T000000Z %s main\ndeb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261101T000000Z %s-updates main\ndeb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20261101T000000Z %s-security main\n' "$VERSION_CODENAME" "$VERSION_CODENAME" "$VERSION_CODENAME" > /etc/apt/sources.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+        git=1:2.39.5-0+deb12u3 patch=2.7.6-7 diffutils=1:3.8-4 python3=3.11.2-1+b1 python3-pip=23.0.1+dfsg-1 \
+        python3-venv=3.11.2-1+b1 curl=7.88.1-10+deb12u15 ca-certificates=20250419~deb12u2 \
+ && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir --break-system-packages "pytest==8.3.5"
 
 COPY validate.py /tests/validate.py
 RUN python3 /tests/validate.py --materialize \
@@ -36,19 +45,15 @@ RUN GOPROXY=https://proxy.golang.org,direct go mod download all \
     && GOPROXY=off go build ./... \
     && chmod -R a+rwX "$(go env GOMODCACHE)"
 
-RUN mkdir -p /output /logs/verifier /root/workspace
-
 # --------------------------------------------------------------------------- #
 # Verifier layer.  [verifier].environment_mode = "separate" grades in a
 # dedicated container Harbor builds from this tests/ directory, so the image
 # must own /tests.  Built on the SAME base + toolchain as environment/Dockerfile
 # so a submission is graded under the toolchain it was produced against.
 # --------------------------------------------------------------------------- #
-RUN mkdir -p /output /logs/verifier /tests
-# Rewardkit 0.2.3 requires Python >=3.12, while this pinned Ubuntu base has
-# Python 3.8. Install a pinned standalone Python and verifier environment.
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /output /logs/verifier /root/workspace /tests
+# Rewardkit 0.2.3 requires Python >=3.12, while this pinned Debian bookworm base
+# has Python 3.11. Install a pinned standalone Python and verifier environment.
 RUN curl -fsSL https://astral.sh/uv/0.13.5/install.sh \
       | env UV_INSTALL_DIR=/usr/local/bin sh \
     && export UV_PYTHON_INSTALL_DIR=/opt/rewardkit/python UV_NO_PROGRESS=1 \
@@ -85,3 +90,4 @@ RUN set -eux; \
 COPY . /tests
 RUN chmod +x /tests/test.sh
 WORKDIR /
+USER 0

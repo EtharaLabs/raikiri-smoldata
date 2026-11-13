@@ -7,7 +7,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /fetch
 RUN . /etc/os-release \
  && rm -f /etc/apt/sources.list.d/debian.sources \
- && printf "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261001T000000Z $VERSION_CODENAME main\n" > /etc/apt/sources.list \
+ && printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261001T000000Z %s main\n' "$VERSION_CODENAME" > /etc/apt/sources.list \
  && apt-get update \
  && apt-get install -y --no-install-recommends git=1:2.47.3-0+deb13u1 \
  && rm -rf /var/lib/apt/lists/*
@@ -16,8 +16,8 @@ RUN python3 validate.py --materialize-build-assets . /fetch/overlay/0
 RUN base64 -d src.tgz.b64 > src.tgz \
  && mkdir -p /grade && tar -xzf src.tgz -C /grade \
  && cp /fetch/overlay/0 /grade/fastify/package-lock.json \
- && cd /grade/fastify && git init -q . && git add -A \
- && git -c user.email=grader@localhost -c user.name=grader commit -q -m pristine
+ && git -C /grade/fastify init -q . && git -C /grade/fastify add -A \
+ && git -C /grade/fastify -c user.email=grader@localhost -c user.name=grader commit -q -m pristine
 
 FROM --platform=$BUILDPLATFORM docker.io/library/node:22-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS nodedeps
 ARG TARGETOS
@@ -35,7 +35,7 @@ FROM docker.io/library/python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN . /etc/os-release \
  && rm -f /etc/apt/sources.list.d/debian.sources \
- && printf "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261001T000000Z $VERSION_CODENAME main\n" > /etc/apt/sources.list \
+ && printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261001T000000Z %s main\n' "$VERSION_CODENAME" > /etc/apt/sources.list \
  && apt-get update \
  && apt-get install -y --no-install-recommends git=1:2.47.3-0+deb13u1 patch=2.8-2 \
  && rm -rf /var/lib/apt/lists/*
@@ -48,17 +48,17 @@ COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
  && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 COPY --from=nodedeps --chown=root:root /fetch/node_modules /opt/deps/node_modules
-RUN ln -s /opt/deps/node_modules /grade/fastify/node_modules
-
-# --------------------------------------------------------------------------- #
 # system-pytest-for-grader: the sandboxed grader runs the pytest oracle with the image
 # python, so pytest must be importable there (the reference installs it the same way).
-RUN pip install --no-cache-dir "pytest==8.3.5"
+RUN ln -s /opt/deps/node_modules /grade/fastify/node_modules \
+ && pip install --no-cache-dir "pytest==8.3.5"
+
+# --------------------------------------------------------------------------- #
 
 # Verifier reward toolchain (ported to the reference contract).
 # RewardKit grades the ported tests/reward/ channels; the claude CLI hosts the Sonnet judge.
 # --------------------------------------------------------------------------- #
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends curl=8.14.1-2+deb13u5 ca-certificates=20250419 \
     && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://astral.sh/uv/0.13.5/install.sh \
       | env UV_INSTALL_DIR=/usr/local/bin sh \
@@ -88,5 +88,5 @@ LABEL org.opencontainers.image.source="https://github.com/fastify/fastify" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.base.name="docker.io/library/python:3.12-slim" \
       org.opencontainers.image.base.digest="sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f"
-USER root
+USER 0
 CMD ["/bin/bash"]

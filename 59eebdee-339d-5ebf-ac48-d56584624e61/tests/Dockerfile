@@ -7,7 +7,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /fetch
 RUN . /etc/os-release \
  && rm -f /etc/apt/sources.list.d/debian.sources \
- && printf "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261001T000000Z $VERSION_CODENAME main\n" > /etc/apt/sources.list \
+ && printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261001T000000Z %s main\n' "$VERSION_CODENAME" > /etc/apt/sources.list \
  && apt-get update \
  && apt-get install -y --no-install-recommends git=1:2.47.3-0+deb13u1 \
  && rm -rf /var/lib/apt/lists/*
@@ -15,8 +15,8 @@ COPY validate.py ./
 RUN python3 validate.py --materialize-build-assets .
 RUN base64 -d src.tgz.b64 > src.tgz \
  && mkdir -p /grade && tar -xzf src.tgz -C /grade \
- && cd /grade/mailpit && git init -q . && git add -A \
- && git -c user.email=grader@localhost -c user.name=grader commit -q -m pristine
+ && git -C /grade/mailpit init -q . && git -C /grade/mailpit add -A \
+ && git -C /grade/mailpit -c user.email=grader@localhost -c user.name=grader commit -q -m pristine
 
 FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.25.0@sha256:5502b0e56fca23feba76dbc5387ba59c593c02ccc2f0f7355871ea9a0852cebe AS gomod
 ARG TARGETOS
@@ -24,7 +24,8 @@ ARG TARGETARCH
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /fetch
 COPY --from=tree /grade/mailpit /fetch/tree
-RUN mkdir -p /gomod && cd /fetch/tree/. && GOMODCACHE=/gomod GOFLAGS=-mod=mod go mod download
+WORKDIR /fetch/tree
+RUN mkdir -p /gomod && GOMODCACHE=/gomod GOFLAGS=-mod=mod go mod download
 
 FROM docker.io/library/golang:1.25.0@sha256:5502b0e56fca23feba76dbc5387ba59c593c02ccc2f0f7355871ea9a0852cebe AS go
 
@@ -32,7 +33,7 @@ FROM docker.io/library/python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN . /etc/os-release \
  && rm -f /etc/apt/sources.list.d/debian.sources \
- && printf "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261001T000000Z $VERSION_CODENAME main\n" > /etc/apt/sources.list \
+ && printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261001T000000Z %s main\n' "$VERSION_CODENAME" > /etc/apt/sources.list \
  && apt-get update \
  && apt-get install -y --no-install-recommends git=1:2.47.3-0+deb13u1 patch=2.8-2 \
  && rm -rf /var/lib/apt/lists/*
@@ -51,7 +52,7 @@ RUN pip install --no-cache-dir "pytest==8.3.5"
 # Verifier reward toolchain (ported to the reference contract).
 # RewardKit grades the ported tests/reward/ channels; the claude CLI hosts the Sonnet judge.
 # --------------------------------------------------------------------------- #
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends curl=8.14.1-2+deb13u5 ca-certificates=20250419 \
     && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://astral.sh/uv/0.13.5/install.sh \
       | env UV_INSTALL_DIR=/usr/local/bin sh \
@@ -102,5 +103,5 @@ LABEL org.opencontainers.image.source="https://github.com/axllent/mailpit" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.base.name="docker.io/library/python:3.12-slim" \
       org.opencontainers.image.base.digest="sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f"
-USER root
+USER 0
 CMD ["/bin/bash"]
