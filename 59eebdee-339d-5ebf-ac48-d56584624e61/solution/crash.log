@@ -9,10 +9,6 @@
 # test cases that fail on the vulnerable commit and pass on the fix.
 #
 # GENERATED SECTION. DO NOT HAND-EDIT.
-# <!-- FORGE-CANARY-BEGIN -->
-# <!-- FORGE-CANARY-SLOT-0: 2354398609dd4d4e52783b481d70c55d165ab3295f9295399f3f1bfb4d265683 -->
-# <!-- FORGE-CANARY-SLOT-1: dca9192c29359f53e1307d055b57c436b32d04a5660c25505fefac320e0d8ffb -->
-# <!-- FORGE-CANARY-END -->
 # | id | path | schema | comparator |
 # | --- | --- | --- | --- |
 # | D1 | `/output/59eebdee-339d-5ebf-ac48-d56584624e61_D1_reproducer.patch` | unified diff that adds or changes test files only | fails on pristine with an assertion failure, passes on the reference repair |

@@ -1,7 +1,3 @@
-# FORGE-CANARY-BEGIN
-# FORGE-CANARY-SLOT-0: 8c794e40c1a131a6a0dc24fdff18c2ba43e92dc933eed04608b34a04f8d0d745
-# FORGE-CANARY-SLOT-1: 5ced333b397a9c9b258f5fd7659386b9aa9967b5ce338ee15646d59335e8aab8
-# FORGE-CANARY-END
 diff --git a/test/schema-special-usage.test.js b/test/schema-special-usage.test.js
 index 9b1a748..b5feb93 100644
 --- a/test/schema-special-usage.test.js
