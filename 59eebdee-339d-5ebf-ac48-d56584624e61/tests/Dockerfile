@@ -24,8 +24,15 @@ ARG TARGETARCH
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /fetch
 COPY --from=tree /grade/mailpit /fetch/tree
+COPY gomodproxy.tgz.part-00 gomodproxy.tgz.part-01 /fetch/
 WORKDIR /fetch/tree
-RUN mkdir -p /gomod && GOMODCACHE=/gomod GOFLAGS=-mod=mod go mod download
+# Go modules come from the GOPROXY-format set shipped in this context (no network at build time).
+RUN cat /fetch/gomodproxy.tgz.part-00 /fetch/gomodproxy.tgz.part-01 > /fetch/gomodproxy.tgz \
+ && echo "c2badcb45dbdbe2c96a4fa741f8c407e547865c14a68365008fc0c8fd69190ee  /fetch/gomodproxy.tgz" | sha256sum -c --quiet - \
+ && mkdir -p /gomodproxy /gomod && tar -xzf /fetch/gomodproxy.tgz -C /gomodproxy \
+ && export GOMODCACHE=/gomod GOPROXY=file:///gomodproxy GOSUMDB=off GOFLAGS=-mod=mod GOTOOLCHAIN=local \
+ && find /gomodproxy -name '*.zip' -printf '%P\n' | sed -E 's#/@v/#@#; s#\.zip$##; s#!([a-z])#\U\1#g' | sort | xargs -r go mod download \
+ && go list -deps -test ./... > /dev/null
 
 FROM docker.io/library/golang:1.25.0@sha256:5502b0e56fca23feba76dbc5387ba59c593c02ccc2f0f7355871ea9a0852cebe AS go
 
