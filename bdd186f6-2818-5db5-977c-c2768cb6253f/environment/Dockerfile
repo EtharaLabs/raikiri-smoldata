@@ -18,8 +18,15 @@ ARG TARGETARCH
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /fetch
 COPY --from=tree /tree/v4 /fetch/tree
+COPY gomodproxy.tgz.part-00 gomodproxy.tgz.part-01 gomodproxy.tgz.part-02 gomodproxy.tgz.part-03 gomodproxy.tgz.part-04 /fetch/
 WORKDIR /fetch/tree
-RUN mkdir -p /gomod && GOMODCACHE=/gomod GOFLAGS=-mod=mod go mod download
+# Go modules come from the GOPROXY-format set shipped in this context (no network at build time).
+RUN cat /fetch/gomodproxy.tgz.part-00 /fetch/gomodproxy.tgz.part-01 /fetch/gomodproxy.tgz.part-02 /fetch/gomodproxy.tgz.part-03 /fetch/gomodproxy.tgz.part-04 > /fetch/gomodproxy.tgz \
+ && echo "506ea3c90f0be69dfada9adf0a139f37a916818ad18944ed02303a75aac15cff  /fetch/gomodproxy.tgz" | sha256sum -c --quiet - \
+ && mkdir -p /gomodproxy /gomod && tar -xzf /fetch/gomodproxy.tgz -C /gomodproxy \
+ && export GOMODCACHE=/gomod GOPROXY=file:///gomodproxy GOSUMDB=off GOFLAGS=-mod=mod GOTOOLCHAIN=local \
+ && find /gomodproxy -name '*.zip' -printf '%P\n' | sed -E 's#/@v/#@#; s#\.zip$##; s#!([a-z])#\U\1#g' | sort | xargs -r go mod download \
+ && go list -e -deps -test ./... > /dev/null
 
 FROM docker.io/library/golang:1.25.7@sha256:5a79b94c34c299ac0361fbb7c7fca6dc552e166b42341050323fa3ab137d7be9 AS go
 
