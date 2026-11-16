@@ -41,9 +41,15 @@ RUN python3 /tests/validate.py --materialize \
 
 RUN mkdir -p /src && tar xzf /opt/harness/src.tgz -C /src
 WORKDIR /src
-RUN GOPROXY=https://proxy.golang.org,direct go mod download all \
-    && GOPROXY=off go build ./... \
-    && chmod -R a+rwX "$(go env GOMODCACHE)"
+COPY gomodproxy.tgz.part-00 /tmp/gomodproxy.tgz.part-00
+# Go modules come from the GOPROXY-format set shipped in this context (no network at build time).
+RUN echo "3485e803fb11688c0e02fe2255a70bc0127c53ad8bba895fbbaab8d356e68f4e  /tmp/gomodproxy.tgz.part-00" | sha256sum -c --quiet - \
+ && mkdir -p /tmp/gomodproxy && tar -xzf /tmp/gomodproxy.tgz.part-00 -C /tmp/gomodproxy \
+ && find /tmp/gomodproxy -name '*.zip' -printf '%P\n' | sed -E 's#/@v/#@#; s#\.zip$##; s#!([a-z])#\U\1#g' | sort | GOPROXY=file:///tmp/gomodproxy GOSUMDB=off xargs -r go mod download \
+ && GOPROXY=file:///tmp/gomodproxy GOSUMDB=off go list -deps -test ./... > /dev/null \
+ && GOPROXY=off go build ./... \
+ && rm -rf /tmp/gomodproxy /tmp/gomodproxy.tgz.part-00 \
+ && chmod -R a+rwX "$(go env GOMODCACHE)"
 
 # --------------------------------------------------------------------------- #
 # Verifier layer.  [verifier].environment_mode = "separate" grades in a
