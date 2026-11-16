@@ -17,7 +17,7 @@ user = "root"
 [environment]
 dockerfile = "environment/Dockerfile"
 network_mode = "no-network"
-build_timeout_sec = 3600.0
+build_timeout_sec = 7200.0
 config = "environment/config/config.toml"
 cpus = 2
 memory_mb = 4096
