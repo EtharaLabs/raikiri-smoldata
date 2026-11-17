@@ -24,6 +24,13 @@ RUN . /etc/os-release \
  && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir --break-system-packages "pytest==8.3.5"
 
+# The agent runs as uid/gid 1000 ([agent].user = "1000") and owns exactly what it writes:
+# the source tree, the submission directory, its workspace and its Go build cache.
+RUN groupadd --gid 1000 agent \
+ && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash agent \
+ && install -d -o 1000 -g 1000 -m 0755 /output /src /home/agent/workspace
+ENV GOCACHE=/home/agent/.cache/go-build
+
 COPY src.tgz /opt/harness/src.tgz
 RUN mkdir -p /src && tar xzf /opt/harness/src.tgz -C /src
 WORKDIR /src
@@ -37,12 +44,13 @@ RUN echo "3485e803fb11688c0e02fe2255a70bc0127c53ad8bba895fbbaab8d356e68f4e  /tmp
  && find /tmp/gomodproxy -name '*.zip' -printf '%P\n' | sed -E 's#/@v/#@#; s#\.zip$##; s#!([a-z])#\U\1#g' | sort | GOPROXY=file:///tmp/gomodproxy GOSUMDB=off xargs -r go mod download \
  && GOPROXY=file:///tmp/gomodproxy GOSUMDB=off go list -deps -test ./... > /dev/null \
  && GOPROXY=off go build ./... \
- && rm -rf /tmp/gomodproxy /tmp/gomodproxy.tgz.part-00
+ && rm -rf /tmp/gomodproxy /tmp/gomodproxy.tgz.part-00 \
+ && chown -R 1000:1000 /src /home/agent/.cache
 
 COPY scripts/ /opt/harness/scripts/
 COPY config/config.toml /opt/harness/config.toml
 RUN chmod +x /opt/harness/scripts/* \
- && mkdir -p /output /logs/verifier /root/workspace
+ && mkdir -p /output /logs/verifier
 # ---------------------------------------------------------------------------
 # Prebaked OpenHands-SDK agent runtime.
 #
@@ -55,7 +63,7 @@ RUN chmod +x /opt/harness/scripts/* \
 # is the model endpoint itself (LLM_BASE_URL), admitted via --allow-agent-host.
 # curl is already present (apt layer above) so the agent's system-dependency
 # check (curl, coreutils) is an offline no-op; coreutils ships in the base.
-# The venv is root-owned, matching the task's [agent].user = "0".
+# The venv is root-owned and world-readable, so the uid-1000 agent can import it.
 # Versions are pinned (openhands-sdk/tools 1.58.1, the version the KAKASHI
 # trajectories ran on; Python 3.12.15) and the uv cache is removed in this layer.
 # ---------------------------------------------------------------------------
@@ -70,6 +78,6 @@ RUN set -eux; \
     /opt/openhands-sdk-venv/bin/python -c "import openhands.sdk; assert openhands.sdk.__version__ == '1.58.1', openhands.sdk.__version__; print('openhands.sdk', openhands.sdk.__version__)"; \
     rm -rf /root/.cache/uv /tmp/uv-*.lock
 
-WORKDIR /root/workspace
+WORKDIR /home/agent/workspace
 USER 0
 CMD ["/bin/bash"]

@@ -29,6 +29,11 @@ RUN . /etc/os-release \
         python3-venv=3.11.2-1+b1 curl=7.88.1-10+deb12u15 ca-certificates=20250419~deb12u2 \
  && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir --break-system-packages "pytest==8.3.5"
+# Verifier user, as in the other raikiri tasks. test.sh itself runs as root (USER 0 below)
+# and drops the grading steps to its own unprivileged uid.
+RUN groupadd --gid 1001 verifier \
+ && useradd --uid 1001 --gid 1001 --create-home --shell /bin/bash verifier \
+ && install -d -o 1001 -g 1001 -m 0755 /output
 
 COPY validate.py /tests/validate.py
 RUN python3 /tests/validate.py --materialize \
@@ -57,7 +62,7 @@ RUN echo "3485e803fb11688c0e02fe2255a70bc0127c53ad8bba895fbbaab8d356e68f4e  /tmp
 # must own /tests.  Built on the SAME base + toolchain as environment/Dockerfile
 # so a submission is graded under the toolchain it was produced against.
 # --------------------------------------------------------------------------- #
-RUN mkdir -p /output /logs/verifier /root/workspace /tests
+RUN mkdir -p /output /logs/verifier /tests
 # Rewardkit 0.2.3 requires Python >=3.12, while this pinned Debian bookworm base
 # has Python 3.11. Install a pinned standalone Python and verifier environment.
 RUN curl -fsSL https://astral.sh/uv/0.13.5/install.sh \

@@ -12,13 +12,11 @@ keywords = ["security", "e2e", "hugo", "go"]
 [agent]
 network_mode = "no-network"
 timeout_sec = 5400
-workspace = "/root/workspace"
-user = "root"
+workspace = "/home/agent/workspace"
+user = "1000"
 [environment]
-dockerfile = "environment/Dockerfile"
 network_mode = "no-network"
 build_timeout_sec = 7200.0
-config = "environment/config/config.toml"
 cpus = 2
 memory_mb = 6144
 storage_mb = 20480
