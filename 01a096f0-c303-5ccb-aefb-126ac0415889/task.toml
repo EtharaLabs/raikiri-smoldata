@@ -20,8 +20,8 @@ network_mode = "no-network"
 build_timeout_sec = 7200.0
 config = "environment/config/config.toml"
 cpus = 2
-memory_mb = 4096
-storage_mb = 10240
+memory_mb = 6144
+storage_mb = 20480
 gpus = 0
 environment_mode = "separate"
 [verifier]
