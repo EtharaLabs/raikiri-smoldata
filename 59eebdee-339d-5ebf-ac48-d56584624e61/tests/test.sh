@@ -4,6 +4,14 @@
 set -u
 LOGDIR=/logs/verifier
 mkdir -p "$LOGDIR"
+# Every exit leaves a reward: a step that aborts before the reward is written scores 0.
+rm -f "$LOGDIR/reward.json"
+fail_closed() {
+    [ -s "$LOGDIR/reward.json" ] && return 0
+    echo "the verifier exited before writing a reward; scored 0" > "$LOGDIR/reward_fail_closed.txt"
+    printf '{\n  "pytest": 0.0,\n  "reward": 0.0\n}\n' > "$LOGDIR/reward.json"
+}
+trap fail_closed EXIT
 unset LD_PRELOAD LD_LIBRARY_PATH LD_AUDIT DYLD_INSERT_LIBRARIES PYTHONPATH PYTHONHOME PYTHONSTARTUP
 # Route the codex CLI to the host codex bridge. Rewardkit gives codex a fresh
 # CODEX_HOME per judge call and codex ignores OPENAI_BASE_URL, so the provider goes
@@ -116,7 +124,9 @@ grader_trusted() {
 grader_reap() {
     for _ in 1 2 3 4 5; do pkill -KILL -u "$GRADER_UID" 2>/dev/null || break; sleep 1; done
     if pgrep -u "$GRADER_UID" >/dev/null 2>&1; then
-        echo "ERROR: grader processes survived; refusing to trust their results" >&2; exit 1
+        echo "ERROR: grader processes survived; refusing to trust their results" >&2
+        echo "grader processes survived the reap" > "$LOGDIR/reward_fail_closed.txt"
+        printf '{\n  "pytest": 0.0,\n  "reward": 0.0\n}\n' > "$LOGDIR/reward.json"; exit 0
     fi
 }
 GRADER_PY='import ctypes, runpy, sys
@@ -168,7 +178,7 @@ export TESTS_DIR=/tests VERIFIER_LOGS="$LOGDIR" VERIFIER_LOG_DIR="$LOGDIR"
 tail -n 10 "$LOGDIR/pytest-stdout.txt" 2>/dev/null || true
 
 # JUnit -> CTRF
-python3 - "$LOGDIR/junit.xml" "$LOGDIR/ctrf.json" <<'PYEOF'
+python3 - "$LOGDIR/junit.xml" "$LOGDIR/ctrf.json" <<'PYEOF' || echo "[ctrf] junit.xml unreadable; the reward step scores the missing results" >&2
 import json, pathlib, sys, xml.etree.ElementTree as ET
 junit, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
 root = ET.parse(junit).getroot()

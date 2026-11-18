@@ -20,6 +20,14 @@ set -u
 
 LOGDIR=/logs/verifier
 mkdir -p "$LOGDIR"
+# Every exit leaves a reward: a step that aborts before the reward is written scores 0.
+rm -f "$LOGDIR/reward.json"
+fail_closed() {
+    [ -s "$LOGDIR/reward.json" ] && return 0
+    echo "the verifier exited before writing a reward; scored 0" > "$LOGDIR/reward_fail_closed.txt"
+    printf '{\n  "pytest": 0.0,\n  "reward": 0.0\n}\n' > "$LOGDIR/reward.json"
+}
+trap fail_closed EXIT
 
 export ASAN_OPTIONS="detect_leaks=0:exitcode=86:symbolize=1:halt_on_error=1:abort_on_error=0"
 export UBSAN_OPTIONS="print_stacktrace=1"
