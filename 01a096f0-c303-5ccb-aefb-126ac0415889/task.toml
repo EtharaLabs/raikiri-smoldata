@@ -24,19 +24,19 @@ gpus = 0
 environment_mode = "separate"
 [verifier]
 # The deterministic pytest channel needs no network. The rubric judge does: the
-# claude-code judge calls api.anthropic.com, so the verifier runs under an
-# allowlist limited to that endpoint. The agent and the environment stay offline.
+# codex judge calls the host codex bridge, so the verifier runs under an allowlist
+# limited to the bridge host. The agent and the environment stay offline.
 network_mode = "allowlist"
-allowed_hosts = ["api.anthropic.com"]
+allowed_hosts = ["172.17.0.1", "host.docker.internal"]
 timeout_sec = 3600
 entrypoint = "tests/test.sh"
 reward_file = "/logs/verifier/reward.json"
 environment_mode = "separate"
 [verifier.env]
-ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY:-}"
-CLAUDE_CODE_OAUTH_TOKEN = "${CLAUDE_CODE_OAUTH_TOKEN:-}"
-JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-claude-code}"
-JUDGE_MODEL = "${JUDGE_MODEL:-anthropic/claude-sonnet-4-5}"
+JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-codex}"
+JUDGE_MODEL = "${JUDGE_MODEL:-openai/gpt-6.1-sol}"
+CODEX_BRIDGE_URL = "${CODEX_BRIDGE_URL:-http://172.17.0.1:8788}"
+KAKASHI_CODEX_BRIDGE_SECRET = "${KAKASHI_CODEX_BRIDGE_SECRET:-codex-bridge}"
 
 [verifier.weights]
 file = "tests/test_weights.json"

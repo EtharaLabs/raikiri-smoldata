@@ -57,15 +57,15 @@ gpus = 0
 entrypoint = "tests/test.sh"
 environment_mode = "separate"
 network_mode = "allowlist"
-allowed_hosts = ["api.anthropic.com"]
+allowed_hosts = ["172.17.0.1", "host.docker.internal"]
 timeout_sec = 5400
 reward_file = "/logs/verifier/reward.json"
 
 [verifier.env]
-ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY:-}"
-JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-claude-code}"
-JUDGE_MODEL = "${JUDGE_MODEL:-anthropic/claude-sonnet-4-5}"
-CLAUDE_CODE_OAUTH_TOKEN = "${CLAUDE_CODE_OAUTH_TOKEN:-}"
+JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-codex}"
+JUDGE_MODEL = "${JUDGE_MODEL:-openai/gpt-6.1-sol}"
+CODEX_BRIDGE_URL = "${CODEX_BRIDGE_URL:-http://172.17.0.1:8788}"
+KAKASHI_CODEX_BRIDGE_SECRET = "${KAKASHI_CODEX_BRIDGE_SECRET:-codex-bridge}"
 
 [leak_gate]
 private_carriers = [

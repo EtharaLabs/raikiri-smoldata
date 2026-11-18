@@ -3,7 +3,7 @@
 # Every criterion is answered from the delivered D2 diff. test.sh floors a negative weighted-sum at 0.
 
 [judge]
-judge = "anthropic/claude-sonnet-4-5"
+judge = "openai/gpt-6.1-sol"
 prompt_template = "prompt.md"
 mode = "individual"
 timeout = 300

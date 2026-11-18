@@ -5,14 +5,23 @@ set -u
 LOGDIR=/logs/verifier
 mkdir -p "$LOGDIR"
 unset LD_PRELOAD LD_LIBRARY_PATH LD_AUDIT DYLD_INSERT_LIBRARIES PYTHONPATH PYTHONHOME PYTHONSTARTUP
-# Fixed host entry for the judge endpoint. The verifier runs on a user-defined
-# docker network where the only resolver is 127.0.0.11 and the egress sidecar
-# blocks DNS to anything else, so the claude CLI gets EAI_AGAIN resolving
-# api.anthropic.com. Pin it to Anthropic's stable prefix (160.79.104.0/24); gost
-# still SNI-filters the TLS connection against the allowlist, so this grants no
-# extra reach and needs no DNS egress.
-grep -q 'api\.anthropic\.com' /etc/hosts 2>/dev/null || \
-    echo '160.79.104.10 api.anthropic.com' >> /etc/hosts
+# Route the codex CLI to the host codex bridge. Rewardkit gives codex a fresh
+# CODEX_HOME per judge call and codex ignores OPENAI_BASE_URL, so the provider goes
+# in the system-wide managed config. The bridge swaps the stub key for the ChatGPT
+# subscription token; the bridge serves the Responses API over HTTP only.
+write_codex_bridge_config() {
+    mkdir -p /etc/codex
+    cat > /etc/codex/managed_config.toml <<EOF
+model_provider = "codex-bridge"
+
+[model_providers.codex-bridge]
+name = "codex bridge"
+base_url = "${CODEX_BRIDGE_URL%/}/v1"
+env_key = "CODEX_API_KEY"
+wire_api = "responses"
+supports_websockets = false
+EOF
+}
 cd "$(dirname "$0")"
 RK=/tests/reward
 
@@ -182,14 +191,18 @@ print(f"[ctrf] {len(tests)} tests -> {out}")
 PYEOF
 
 # 4. reward: pytest ledger (+ rubric judge when configured), else pytest alone
-JUDGE_TRANSPORT="${JUDGE_TRANSPORT:-claude-code}"
+# The judge: GPT 6.1 Sol through the codex CLI and the host codex bridge.
+JUDGE_TRANSPORT="${JUDGE_TRANSPORT:-codex}"
+JUDGE_MODEL="${JUDGE_MODEL:-openai/gpt-6.1-sol}"
 SKIP_REASON=""
 if [ "${JUDGE_SKIP:-0}" = 1 ]; then SKIP_REASON="JUDGE_SKIP=1"
 elif [ ! -s "$RK/rubric/judge.toml" ]; then SKIP_REASON="no rubric"
-elif [ -z "${JUDGE_MODEL:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-  SKIP_REASON="no judge model or API key configured"
-elif [ "$JUDGE_TRANSPORT" = claude-code ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}${ANTHROPIC_API_KEY:-}" ]; then SKIP_REASON="no Claude login (CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY are empty)"
-elif [ "$JUDGE_TRANSPORT" = claude-code ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}${ANTHROPIC_API_KEY:-}" ]; then SKIP_REASON="no Claude login (CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY are empty)"
+elif [ "$JUDGE_TRANSPORT" != codex ]; then SKIP_REASON="unsupported judge transport $JUDGE_TRANSPORT (codex only)"
+elif [ -z "${CODEX_BRIDGE_URL:-}" ] || [ -z "${KAKASHI_CODEX_BRIDGE_SECRET:-}" ]; then
+  SKIP_REASON="no codex bridge (CODEX_BRIDGE_URL / KAKASHI_CODEX_BRIDGE_SECRET are empty)"
+# An unreachable bridge makes codex retry every criterion until its timeout.
+elif ! curl -fsS -m 10 -o /dev/null "${CODEX_BRIDGE_URL%/}/healthz"; then
+  SKIP_REASON="codex bridge unreachable at ${CODEX_BRIDGE_URL%/}/healthz"
 fi
 if [ -z "$SKIP_REASON" ] && ! python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("steps") else 1)' "$TRAJ" 2>/dev/null; then
   SKIP_REASON="no agent trajectory available to the judge"
@@ -205,13 +218,18 @@ fi
 cp -a /output/. "$JW/workspace/" 2>/dev/null || true
 RK_OUT="$LOGDIR/rewardkit-stdout.txt"; : > "$RK_OUT"; JUDGE_RAN=0
 if [ -z "$SKIP_REASON" ]; then
-  if REWARDKIT_JUDGE="$JUDGE_TRANSPORT" REWARDKIT_MODEL="${JUDGE_MODEL:-}" \
+  write_codex_bridge_config
+  # Rewardkit hands OPENAI_API_KEY to codex as CODEX_API_KEY; here it is the bridge's stub.
+  if OPENAI_API_KEY="$KAKASHI_CODEX_BRIDGE_SECRET" REWARDKIT_JUDGE="$JUDGE_TRANSPORT" REWARDKIT_MODEL="$JUDGE_MODEL" \
       /opt/rewardkit/.venv/bin/rewardkit --yolo --max-concurrent-agent 1 "$RK" --workspace "$JW" --output "$LOGDIR/reward.json" >> "$RK_OUT" 2>&1 \
-      && [ -s "$LOGDIR/reward.json" ]; then JUDGE_RAN=1; fi
-else
-  echo "[reward] rubric channel UNSCORED: $SKIP_REASON" >> "$RK_OUT"
+      && [ -s "$LOGDIR/reward.json" ]; then JUDGE_RAN=1
+  else
+    SKIP_REASON="the judge failed: $(grep -E 'rror' "$RK_OUT" | tail -n 1 | cut -c1-400)"
+    rm -f "$LOGDIR/reward.json" "$LOGDIR/reward-details.json"
+  fi
 fi
 if [ "$JUDGE_RAN" = 0 ]; then
+  echo "[reward] rubric channel UNSCORED: $SKIP_REASON" | tee -a "$RK_OUT" > "$LOGDIR/rubric_judge_failed.txt"
   /opt/rewardkit/.venv/bin/rewardkit "$RK/pytest" --workspace /output --output "$LOGDIR/reward.json" >> "$RK_OUT" 2>&1 || true
   python3 - "$LOGDIR/reward.json" <<'PYEOF'
 import json,sys,pathlib

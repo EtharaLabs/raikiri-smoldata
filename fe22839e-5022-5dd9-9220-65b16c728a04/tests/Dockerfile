@@ -56,7 +56,7 @@ RUN ln -s /opt/deps/node_modules /grade/fast-uri/node_modules \
 # --------------------------------------------------------------------------- #
 
 # Verifier reward toolchain (ported to the reference contract).
-# RewardKit grades the ported tests/reward/ channels; the claude CLI hosts the Sonnet judge.
+# RewardKit grades the ported tests/reward/ channels; the codex CLI hosts the GPT 6.1 Sol judge.
 # --------------------------------------------------------------------------- #
 RUN apt-get update && apt-get install -y --no-install-recommends curl=8.14.1-2+deb13u5 ca-certificates=20250419 \
     && rm -rf /var/lib/apt/lists/*
@@ -72,9 +72,9 @@ RUN curl -fsSL https://astral.sh/uv/0.13.5/install.sh \
 ENV PATH="/opt/rewardkit/.venv/bin:${PATH}"
 
 RUN set -eux; \
-    npm install -g "@anthropic-ai/claude-code@2.1.287"; \
+    npm install -g "@openai/codex@0.169.0"; \
     npm cache clean --force; \
-    claude --version
+    codex --version
 
 COPY . /tests
 RUN chmod +x /tests/test.sh

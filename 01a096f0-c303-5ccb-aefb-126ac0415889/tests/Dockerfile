@@ -76,9 +76,9 @@ RUN curl -fsSL https://astral.sh/uv/0.13.5/install.sh \
     && /opt/rewardkit/.venv/bin/rewardkit --help >/dev/null
 ENV PATH="/opt/rewardkit/.venv/bin:${PATH}"
 
-# Claude rubric judge: the claude CLI hosts the Sonnet judge Rewardkit drives
-# (JUDGE_TRANSPORT=claude-code). Installed at build time; at run time the verifier
-# reaches only api.anthropic.com.
+# Rubric judge: the codex CLI hosts the GPT 6.1 Sol judge Rewardkit drives
+# (JUDGE_TRANSPORT=codex). Installed at build time; at run time the verifier
+# reaches only the host codex bridge.
 ARG NODE_VERSION=20.20.2
 RUN set -eux; \
     dpkg_arch="$(dpkg --print-architecture)"; \
@@ -94,9 +94,9 @@ RUN set -eux; \
     rm -f "$archive"; \
     node --version; \
     npm --version; \
-    npm install -g "@anthropic-ai/claude-code@2.1.287"; \
+    npm install -g "@openai/codex@0.169.0"; \
     npm cache clean --force; \
-    claude --version
+    codex --version
 
 COPY . /tests
 RUN chmod +x /tests/test.sh

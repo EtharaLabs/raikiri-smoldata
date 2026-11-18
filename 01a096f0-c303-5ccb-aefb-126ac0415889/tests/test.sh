@@ -13,9 +13,9 @@
 #                  + reward-details.json (per test and per criterion, with the judge's reasoning)
 #   5. record      judge.json (what judged, or why nothing did) and reward_producer.json
 #
-# [verifier.env]: JUDGE_MODEL (default anthropic/claude-sonnet-4-5), JUDGE_TRANSPORT
-# (claude-code), CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY; JUDGE_SKIP=1 scores the
-# pytest channel alone.
+# [verifier.env]: JUDGE_MODEL (default openai/gpt-6.1-sol), JUDGE_TRANSPORT (codex),
+# CODEX_BRIDGE_URL and KAKASHI_CODEX_BRIDGE_SECRET (the host codex bridge and its stub
+# key); JUDGE_SKIP=1 scores the pytest channel alone.
 set -u
 
 LOGDIR=/logs/verifier
@@ -26,14 +26,23 @@ export UBSAN_OPTIONS="print_stacktrace=1"
 unset LD_PRELOAD LD_LIBRARY_PATH LD_AUDIT DYLD_INSERT_LIBRARIES PYTHONPATH PYTHONHOME PYTHONSTARTUP
 unset TARGET_SRC TARGET_OUT TARGET_BIN TARGET_DRIVER SRC_TGZ VALIDATE_PY ORACLE_DATA_DIR
 
-# Fixed host entry for the judge endpoint. The verifier runs on a user-defined
-# docker network where the only resolver is 127.0.0.11 and the egress sidecar
-# blocks DNS to anything else, so the claude CLI gets EAI_AGAIN resolving
-# api.anthropic.com. Pin it to Anthropic's stable prefix (160.79.104.0/24); gost
-# still SNI-filters the TLS connection against the allowlist, so this grants no
-# extra reach and needs no DNS egress.
-grep -q 'api\.anthropic\.com' /etc/hosts 2>/dev/null || \
-    echo '160.79.104.10 api.anthropic.com' >> /etc/hosts
+# Route the codex CLI to the host codex bridge. Rewardkit gives codex a fresh
+# CODEX_HOME per judge call and codex ignores OPENAI_BASE_URL, so the provider goes
+# in the system-wide managed config. The bridge swaps the stub key for the ChatGPT
+# subscription token; the bridge serves the Responses API over HTTP only.
+write_codex_bridge_config() {
+    mkdir -p /etc/codex
+    cat > /etc/codex/managed_config.toml <<EOF
+model_provider = "codex-bridge"
+
+[model_providers.codex-bridge]
+name = "codex bridge"
+base_url = "${CODEX_BRIDGE_URL%/}/v1"
+env_key = "CODEX_API_KEY"
+wire_api = "responses"
+supports_websockets = false
+EOF
+}
 
 cd "$(dirname "$0")"
 
@@ -373,21 +382,23 @@ then
 fi
 
 # ---------------------------------------------------------------- 4. reward
-JUDGE_TRANSPORT="${JUDGE_TRANSPORT:-claude-code}"
+JUDGE_TRANSPORT="${JUDGE_TRANSPORT:-codex}"
 SKIP_REASON=""
 
-# The judge: Claude Sonnet 4.5 through Claude Code.
-JUDGE_MODEL="${JUDGE_MODEL:-anthropic/claude-sonnet-4-5}"
+# The judge: GPT 6.1 Sol through the codex CLI and the host codex bridge.
+JUDGE_MODEL="${JUDGE_MODEL:-openai/gpt-6.1-sol}"
 
 if [ "${JUDGE_SKIP:-0}" = 1 ]; then
     SKIP_REASON="JUDGE_SKIP=1"
 elif [ ! -s "$RK/rubric/judge.toml" ]; then
     SKIP_REASON="the task ships no rubric (no tests/reward/rubric/judge.toml)"
-elif [ "$JUDGE_TRANSPORT" != claude-code ]; then
-    SKIP_REASON="unsupported judge transport $JUDGE_TRANSPORT (claude-code only)"
-elif [ "$JUDGE_TRANSPORT" = claude-code ]; then
-    [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}${ANTHROPIC_API_KEY:-}" ] \
-        || SKIP_REASON="no Claude login (CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY are empty)"
+elif [ "$JUDGE_TRANSPORT" != codex ]; then
+    SKIP_REASON="unsupported judge transport $JUDGE_TRANSPORT (codex only)"
+elif [ -z "${CODEX_BRIDGE_URL:-}" ] || [ -z "${KAKASHI_CODEX_BRIDGE_SECRET:-}" ]; then
+    SKIP_REASON="no codex bridge (CODEX_BRIDGE_URL / KAKASHI_CODEX_BRIDGE_SECRET are empty)"
+# An unreachable bridge makes codex retry every criterion until its timeout.
+elif ! curl -fsS -m 10 -o /dev/null "${CODEX_BRIDGE_URL%/}/healthz"; then
+    SKIP_REASON="codex bridge unreachable at ${CODEX_BRIDGE_URL%/}/healthz"
 fi
 # D2-defensive: don't judge without a trajectory -- produces a falsely low rubric
 if [ -z "$SKIP_REASON" ] && ! python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("steps") else 1)' "$TRAJ" 2>/dev/null; then
@@ -418,8 +429,10 @@ export REWARDKIT_LOG_DIR="$LOGDIR"
 RK_OUT="$LOGDIR/rewardkit-stdout.txt"; : > "$RK_OUT"
 JUDGE_RAN=0; JUDGE_ERROR=""
 if [ -z "$SKIP_REASON" ]; then
-    echo "[3/5 reward] rewardkit: pytest ledger + rubric, judged by $JUDGE_TRANSPORT / ${JUDGE_MODEL:-<wire default>}"
-    if REWARDKIT_JUDGE="$JUDGE_TRANSPORT" REWARDKIT_MODEL="${JUDGE_MODEL:-}" \
+    echo "[3/5 reward] rewardkit: pytest ledger + rubric, judged by $JUDGE_TRANSPORT / $JUDGE_MODEL"
+    write_codex_bridge_config
+    # Rewardkit hands OPENAI_API_KEY to codex as CODEX_API_KEY; here it is the bridge's stub.
+    if OPENAI_API_KEY="$KAKASHI_CODEX_BRIDGE_SECRET" REWARDKIT_JUDGE="$JUDGE_TRANSPORT" REWARDKIT_MODEL="$JUDGE_MODEL" \
             rewardkit --yolo --max-concurrent-agent 1 "$RK" --workspace "$JW" --output "$LOGDIR/reward.json" >> "$RK_OUT" 2>&1 \
             && [ -s "$LOGDIR/reward.json" ]; then
         JUDGE_RAN=1
@@ -509,7 +522,7 @@ judge = {"ran": ran, "transport": transport if ran else None,
          "configured": (rub or {}).get("judge") if ran else None,
          "usage": (rub or {}).get("usage") if ran else None,
          "rewardkit": md.version("harbor-rewardkit"),
-         "claude": version(["claude", "--version"]) if ran and transport == "claude-code" else None}
+         "codex": version(["codex", "--version"]) if ran and transport == "codex" else None}
 (L / "judge.json").write_text(json.dumps(judge, indent=2))
 (L / "reward_producer.json").write_text(json.dumps({
     "producer": "rewardkit", "channels": sorted(k for k in reward if k not in ("reward", "rubric_unclamped")),
