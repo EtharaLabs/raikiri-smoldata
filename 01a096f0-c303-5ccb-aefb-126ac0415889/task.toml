@@ -12,11 +12,13 @@ keywords = ["security", "e2e", "hugo", "go"]
 [agent]
 network_mode = "no-network"
 timeout_sec = 5400
-workspace = "/home/agent/workspace"
-user = "1000"
+workspace = "/root/workspace"
+user = "root"
 [environment]
+dockerfile = "environment/Dockerfile"
 network_mode = "no-network"
 build_timeout_sec = 7200.0
+config = "environment/config/config.toml"
 cpus = 2
 memory_mb = 6144
 storage_mb = 20480
@@ -28,7 +30,7 @@ environment_mode = "separate"
 # limited to the bridge host. The agent and the environment stay offline.
 network_mode = "allowlist"
 allowed_hosts = ["172.17.0.1", "host.docker.internal"]
-timeout_sec = 3600
+timeout_sec = 28200
 entrypoint = "tests/test.sh"
 reward_file = "/logs/verifier/reward.json"
 environment_mode = "separate"
@@ -36,23 +38,28 @@ environment_mode = "separate"
 JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-codex}"
 JUDGE_MODEL = "${JUDGE_MODEL:-openai/gpt-6.1-sol}"
 CODEX_BRIDGE_URL = "${CODEX_BRIDGE_URL:-http://172.17.0.1:8788}"
-KAKASHI_CODEX_BRIDGE_SECRET = "${KAKASHI_CODEX_BRIDGE_SECRET:-codex-bridge}"
+KAKASHI_CODEX_BRIDGE_SECRET = "${KAKASHI_CODEX_BRIDGE_SECRET:-}"
+LITELLM_LOCAL_MODEL_COST_MAP = "True"
 
 [verifier.weights]
-file = "tests/test_weights.json"
-normalize = "component_weighted_mean"
-clamp = [-1.0, 1.0]
+pytest = 0.5
+rubric = 0.5
 [verifier.robustness]
 stability_trials = 2
 flakiness_trials = 2
 [rubric]
 file = "tests/judge.toml"
 judge_format = "harbor-reward-kit"
-criteria_count = 19
-positive_weight = 34
+criteria_count = 18
+positive_weight = 33
 [metadata]
 difficulty = "expert"
-difficulty_explanation = "Set from the D9 trajectory under the grader in use at the time (its rubric judge has since been replaced by Claude Sonnet 4.5): claude-opus-4-8 pass@1 trial EScWdbe reward 0.2271 (pytest 0.0857, rubric 0.3684), below the 0.7 threshold, 0 of 1 runs passed. GLM 5.3 and pass@8 runs pending."
+reward_keys = ["pytest", "rubric", "reward"]
+reward_keys_note = "rubric is written only when the judge ran; otherwise reward.json carries pytest and reward, and reward = pytest."
+judge = "openai/gpt-6.1-sol through the codex CLI 0.169.0"
+judge_dependency = "The rubric half needs the codex bridge at CODEX_BRIDGE_URL (default http://172.17.0.1:8788) and its key in KAKASHI_CODEX_BRIDGE_SECRET. Without either, or without an agent trajectory, tests/test.sh records the rubric as UNSCORED in /logs/verifier/rubric_judge_failed.txt and reward = pytest. The judge runs as an unprivileged uid and sets only the rubric value; the pytest value is scored as root before it runs."
+agent_network = "The agent container has no network. The harness admits only the model endpoint (harbor --allow-agent-host); an agent that calls a model API from inside the container needs [agent] network_mode = \"allowlist\" with that host."
+difficulty_explanation = "Measured once, on an earlier grader: claude-opus-4-8 pass@1 trial EScWdbe scored reward 0.2271 (pytest 0.0857, rubric 0.3684), below the 0.7 threshold, 0 of 1 runs passed. That grader had a different instruction, an Anthropic rubric judge, and pytest P 37 / rubric P 34. The current grader is pytest P 37 (tests/test_weights.json) and rubric P 33 over 18 criteria (tests/judge.toml) judged by openai/gpt-6.1-sol; no trajectory has been scored on it yet. GLM and pass@8 runs are open items."
 mode = "e2e"
 language = "go"
 task_id = "01a096f0-c303-5ccb-aefb-126ac0415889"
@@ -73,6 +80,8 @@ normalization = "casefold; collapse all runs of non-alphanumeric to a single spa
 containment_threshold = 0.30
 [upstream_provenance]
 origin = "derived"
+advisory = "CVE-2026-58404, GHSA-pmrv-x7gp-2rjw"
+contamination_note = "The main defect is CVE-2026-58404; its reference repair and the numeric held-out inputs follow upstream commit a00b5c72ac57afe26df6688ece3ca544a56df372, and the second-weakness (mixed-case scheme) inputs follow upstream commit 24d5e42ffa33eebdf906c495713f0d2bae30c0cb and advisory GHSA-pmrv-x7gp-2rjw (Apache-2.0); both are public and may predate the training cutoff of current models. The host-name resolution screen has no upstream counterpart."
 provenance_date = "2026-10-27"
 source_kind = "public_repository"
 license = "Apache-2.0"
@@ -83,10 +92,11 @@ modifications = [
     "Authored a verifier entrypoint at tests/test.sh and the weighted oracle tests/test_output.py with tests/test_weights.json.",
     "Selected a withheld reproducer at tests/data/poc.bin and embedded variant, resolved-host and preservation programs in tests/test_output.py, all distinct from the reference reproducer at solution/poc.bin.",
     "Authored the judged rubric tests/judge.toml.",
-    "The graded repair design deliberately exceeds the upstream fix. Upstream closed the numeric-encoding bypass in gohugoio/hugo commit a00b5c72ac57afe26df6688ece3ca544a56df372 with a canonical dotted-decimal re-check alone, and closed the mixed-case scheme bypass in commit 24d5e42ffa33eebdf906c495713f0d2bae30c0cb with a case-insensitive deny rule plus public-address classification of an already-resolved address at dial time; neither upstream commit adds host-name resolution to the policy check, and no such mechanism exists in config/security/securityConfig.go at any point in that project's history. This task additionally requires a resolution-time screen for the default policy, graded by test_patched_resolved_host_poc_neutralized and test_patched_internal_name_classes_neutralized (10 of 37 positive points) and by rubric rows R5 through R9 (about 44 percent of the positive rubric weight). A repair faithful only to the two upstream commits therefore does not reach the full reward.",
+    "The graded repair design deliberately exceeds the upstream fix. Upstream closed the numeric-encoding bypass in gohugoio/hugo commit a00b5c72ac57afe26df6688ece3ca544a56df372 with a canonical dotted-decimal re-check alone, and closed the mixed-case scheme bypass in commit 24d5e42ffa33eebdf906c495713f0d2bae30c0cb with a case-insensitive deny rule plus public-address classification of an already-resolved address at dial time; neither upstream commit adds host-name resolution to the policy check, and no such mechanism exists in config/security/securityConfig.go at any point in that project's history. This task additionally requires a resolution-time screen for the default policy, graded by test_patched_resolved_host_poc_neutralized and test_patched_internal_name_classes_neutralized (10 of 37 positive points) and by rubric rows R5 through R9 (15 of 33, about 45 percent of the positive rubric weight). A repair faithful only to the two upstream commits therefore does not reach the full reward.",
 ]
 [upstream_provenance.source]
 canonical_repo = "https://github.com/gohugoio/hugo"
 base_commit = "cf9c8f93ca2a2838ce378f9e36d052ac2f79e229"
 event_timestamp = "2026-10-27T00:00:00Z"
 fixed_commit = "a00b5c72ac57afe26df6688ece3ca544a56df372"
+secondary_fixed_commit = "24d5e42ffa33eebdf906c495713f0d2bae30c0cb"

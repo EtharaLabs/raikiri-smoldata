@@ -21,9 +21,12 @@ license = "MIT"
 platforms = ["linux/amd64", "linux/arm64"]
 harbor_release = "0.24.0"
 reward_carrier = "/logs/verifier/reward.json"
-reward_keys = ["deterministic_channel", "judged_channel", "reward"]
+reward_keys = ["pytest", "rubric", "reward"]
 graded_key = "reward"
 full_reward = 1.0
+judge = "openai/gpt-6.1-sol through the codex CLI 0.169.0"
+judge_dependency = "The rubric half needs the codex bridge at CODEX_BRIDGE_URL (default http://172.17.0.1:8788) and its key in KAKASHI_CODEX_BRIDGE_SECRET. Without either, or without an agent trajectory, tests/test.sh records the rubric as UNSCORED in /logs/verifier/rubric_judge_failed.txt and reward = pytest. The judge runs as an unprivileged uid and sets only the rubric value; the pytest value is scored as root before it runs."
+agent_network = "The agent container has no network. The harness admits only the model endpoint (harbor --allow-agent-host); an agent that calls a model API from inside the container needs [agent] network_mode = \"allowlist\" with that host."
 
 [[metadata.deliverables]]
 id = "D1"
@@ -58,14 +61,19 @@ entrypoint = "tests/test.sh"
 environment_mode = "separate"
 network_mode = "allowlist"
 allowed_hosts = ["172.17.0.1", "host.docker.internal"]
-timeout_sec = 5400
+timeout_sec = 18000
 reward_file = "/logs/verifier/reward.json"
 
 [verifier.env]
 JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-codex}"
 JUDGE_MODEL = "${JUDGE_MODEL:-openai/gpt-6.1-sol}"
 CODEX_BRIDGE_URL = "${CODEX_BRIDGE_URL:-http://172.17.0.1:8788}"
-KAKASHI_CODEX_BRIDGE_SECRET = "${KAKASHI_CODEX_BRIDGE_SECRET:-codex-bridge}"
+KAKASHI_CODEX_BRIDGE_SECRET = "${KAKASHI_CODEX_BRIDGE_SECRET:-}"
+LITELLM_LOCAL_MODEL_COST_MAP = "True"
+
+[verifier.weights]
+pytest = 0.5
+rubric = 0.5
 
 [leak_gate]
 private_carriers = [
@@ -86,5 +94,12 @@ judge_file = "tests/judge.toml"
 criteria_count = 21
 positive_weight = 38.0
 
+[upstream_provenance]
+repo = "https://github.com/fastify/fastify"
+vulnerable_commit = "93c239a380f3f2778bb7565fcdf777e91cfe1fbc"
+advisory = "GHSA-667r-xxjv-c9mm, GHSA-389g-gv7q-r4x8"
+contamination_note = "The main reference fix and the held-out tests derive from upstream commit f02d8d4ab1ab208f10819c4dc213595b06497833 (MIT, committed 2026-09-03); the second weakness and its reference repair derive from upstream commit 3241fbd2f10a8ca1503533726836b53b6e8775a2 (MIT, committed 2026-10-12, a 5.x backport). Both are public; the variant, second-entry, compiler and second-weakness probes are authored for this task."
+
 [upstream_provenance.source]
 fixed_commit = "f02d8d4ab1ab208f10819c4dc213595b06497833"
+secondary_fixed_commit = "3241fbd2f10a8ca1503533726836b53b6e8775a2"

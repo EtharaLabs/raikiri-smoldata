@@ -13,7 +13,7 @@ keywords = ["security", "go", "vulnerability-repair", "regression-test"]
 
 [metadata]
 difficulty = "hard"
-difficulty_explanation = "Set from the D9 trajectory under the canonical grader (Claude Sonnet 4.5 judge, no channel gate): opus-4-8 pass@1 run 20261031T095319Z reward 0.0441 (pytest 0.0882, rubric 0.0 floored from -0.2857), below the 0.7 threshold, 0 of 1 runs passed; that run repaired a different weakness outside the vulnerable file. Opus-4-8 pass@1 run 20261101T124623Z (Bedrock) reward 0.8001 (pytest 0.6579, rubric 0.9423): a functionally complete repair whose violation labels use lower-case member names, so the upstream held-out and variant label assertions fail; 1 of 2 recorded runs passed. Round 11 reweighted structural relations; GLM 5.3 and pass@8 runs pending."
+difficulty_explanation = "Current grader (pytest channel P 53 from tests/test_output.py; rubric P 50 judged by openai/gpt-6.1-sol through the codex bridge; reward = 0.5 pytest + 0.5 rubric): opus-4-8 pass@1 job bdd186f6-opus48-gpt61sol-20261118T202215Z reward 0.1449 (pytest 0.1698 = 9 of 53, rubric 0.12), below the 0.7 threshold; it deleted the artifact garbage-collection entry from the override allow-list, so settings the project accepted before are refused, and its reproducer listed that field as blocked in the override accounting test in merge_test.go, so the reproducer fails on the reference repair. The previous grader (rubric P 51, same judge) scored the same failure in run 20261118T100405Z at reward 0.1437 (pytest 0.1698, rubric 0.1176 = 6 of 51). Graders of 2026-10-31 and 2026-11-01 with the Claude Sonnet 4.5 judge: run 20261031T095319Z reward 0.0441 (pytest 0.0882, rubric 0.0 floored from -0.2857), which repaired a different weakness outside the vulnerable file; run 20261101T124623Z (Bedrock) reward 0.8001 (pytest 0.6579, rubric 0.9423), a functionally complete repair whose lower-case violation labels failed the then case-sensitive label assertions (the current assertions are case-insensitive; that run was not re-graded). No run exists yet against the current instruction text. Open: GLM 5.3 and pass@8 runs."
 null_floor = 0.0
 discrimination_weight = 0.5
 category = "Code Security"
@@ -24,9 +24,13 @@ license = "Apache-2.0"
 platforms = ["linux/amd64", "linux/arm64"]
 harbor_release = "0.24.0"
 reward_carrier = "/logs/verifier/reward.json"
-reward_keys = ["deterministic_channel", "judged_channel", "reward"]
+reward_keys = ["pytest", "rubric", "reward"]
+reward_keys_note = "rubric is written only when the judge ran; otherwise reward.json carries pytest and reward, and reward = pytest."
 graded_key = "reward"
 full_reward = 1.0
+judge = "openai/gpt-6.1-sol through the codex CLI 0.169.0"
+judge_dependency = "The rubric half needs the codex bridge at CODEX_BRIDGE_URL (default http://172.17.0.1:8788) and its key in KAKASHI_CODEX_BRIDGE_SECRET. Without either, or without an agent trajectory, tests/test.sh records the rubric as UNSCORED in /logs/verifier/rubric_judge_failed.txt and reward = pytest. The judge runs as an unprivileged uid and sets only the rubric value; the pytest value is scored as root before it runs."
+agent_network = "The agent container has no network. The harness admits only the model endpoint (harbor --allow-agent-host); an agent that calls a model API from inside the container needs [agent] network_mode = \"allowlist\" with that host."
 
 [[metadata.deliverables]]
 id = "D1"
@@ -38,7 +42,7 @@ depends_on = []
 [[metadata.deliverables]]
 id = "D2"
 path = "/output/bdd186f6-2818-5db5-977c-c2768cb6253f_D2_repair.patch"
-schema = "unified diff relative to the repository root; only sections on the vulnerable source files are applied"
+schema = "unified diff relative to the repository root; only sections that modify the one vulnerable existing source file are applied"
 comparator = "closes D1 and the withheld regression tests, keeps the pass-to-pass set, touches no protected path"
 depends_on = ["D1"]
 
@@ -60,19 +64,20 @@ gpus = 0
 entrypoint = "tests/test.sh"
 environment_mode = "separate"
 network_mode = "allowlist"
-allowed_hosts = ["api.anthropic.com"]
-timeout_sec = 5400
+allowed_hosts = ["172.17.0.1", "host.docker.internal"]
+timeout_sec = 21600
 reward_file = "/logs/verifier/reward.json"
 
 [verifier.env]
-ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY:-}"
-JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-claude-code}"
-JUDGE_MODEL = "${JUDGE_MODEL:-anthropic/claude-sonnet-4-5}"
-CLAUDE_CODE_OAUTH_TOKEN = "${CLAUDE_CODE_OAUTH_TOKEN:-}"
+JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-codex}"
+JUDGE_MODEL = "${JUDGE_MODEL:-openai/gpt-6.1-sol}"
+CODEX_BRIDGE_URL = "${CODEX_BRIDGE_URL:-http://172.17.0.1:8788}"
+KAKASHI_CODEX_BRIDGE_SECRET = "${KAKASHI_CODEX_BRIDGE_SECRET:-}"
+LITELLM_LOCAL_MODEL_COST_MAP = "True"
 
 [verifier.weights]
-deterministic = 0.5
-judged = 0.5
+pytest = 0.5
+rubric = 0.5
 
 [verifier.robustness]
 reruns = 1
@@ -81,11 +86,13 @@ jitter = false
 [upstream_provenance]
 repo = "https://github.com/argoproj/argo-workflows"
 vulnerable_commit = "5ac265d6aef7418e57c64d66168ea18b6dd8f609"
+advisory = "GHSA-48p8-g2fx-3wwm"
+contamination_note = "The reference fix and the held-out tests derive from upstream commit 277e9cef0ad16d7eaaab253573d0695951a65dbd (Apache-2.0), public since 2026-06-10, before the training cutoff of current models; the held-out and probe label assertions are loosened from upstream."
 
 [rubric]
 judge_file = "tests/judge.toml"
-criteria_count = 21
-positive_weight = 51.0
+criteria_count = 20
+positive_weight = 50.0
 
 [leak_gate]
 private_carriers = [

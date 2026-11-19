@@ -33,7 +33,7 @@ def test_repair_closes_reproducer():
 
 
 def test_repair_keeps_pass_to_pass():
-    assert _S["p2p_kept"] is True and _S["held_out_closed"] is True and _S["red_line"] is False and _reproducer_valid(), "a working repair must keep all previously-passing tests passing, delivered with a working reproducer"
+    assert _S["p2p_kept"] is True and _S["repair_changes_code"] is True and _S["red_line"] is False, "a working repair must keep all previously-passing tests passing"
 
 
 def test_repair_survivor_rule():

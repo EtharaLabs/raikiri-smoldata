@@ -13,14 +13,14 @@ id = "R1"
 name = "numeric_decoder_general_grammar"
 description = "The agent submits a patch whose HTTP URL policy check decodes a numeric host through one general parser of the one-to-four-part numeric address grammar instead of a list of fixed spellings."
 type = "binary"
-weight = 0.08823529411764706
+weight = 0.09090909090909091
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "important"
 source_weight = 3
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -28,14 +28,14 @@ id = "R2"
 name = "numeric_decoder_requires_all_numeric_parts"
 description = "The agent submits a patch whose numeric host decoder in the HTTP URL policy check treats a host as an address only when every dot-separated part parses as a number."
 type = "binary"
-weight = 0.029411764705882353
+weight = 0.030303030303030304
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "less_important"
 source_weight = 1
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -43,14 +43,14 @@ id = "R3"
 name = "canonical_form_reuses_configured_patterns"
 description = "The agent submits a patch that re-evaluates the decoded dotted-decimal URL against the same configured URL patterns the original URL text passed through."
 type = "binary"
-weight = 0.08823529411764706
+weight = 0.09090909090909091
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "important"
 source_weight = 3
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -58,14 +58,14 @@ id = "R4"
 name = "numeric_handling_in_shared_check"
 description = "The agent places the numeric host handling inside the shared HTTP URL policy check that each remote fetch consults on its first request plus every redirect hop."
 type = "binary"
-weight = 0.08823529411764706
+weight = 0.09090909090909091
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "important"
 source_weight = 3
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -73,14 +73,14 @@ id = "R5"
 name = "resolves_host_names_default_policy"
 description = "The agent submits a patch to the default HTTP URL policy check that looks up the addresses a host name resolves to before admitting the URL."
 type = "binary"
-weight = 0.14705882352941177
+weight = 0.15151515151515152
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "critically_important"
 source_weight = 5
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -88,14 +88,14 @@ id = "R6"
 name = "name_screening_in_shared_check"
 description = "The agent places the host-name address screening inside the shared HTTP URL policy check that each remote fetch consults on its first request plus every redirect hop."
 type = "binary"
-weight = 0.08823529411764706
+weight = 0.09090909090909091
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "important"
 source_weight = 3
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -103,14 +103,14 @@ id = "R7"
 name = "classifies_every_resolved_address"
 description = "The agent submits a patch whose host-name screening in the HTTP URL policy check refuses the URL when any one of the looked-up addresses of the name is internal."
 type = "binary"
-weight = 0.08823529411764706
+weight = 0.09090909090909091
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "important"
 source_weight = 3
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -118,14 +118,14 @@ id = "R8"
 name = "screening_scoped_to_default_policy"
 description = "The agent submits a patch that applies the host-name screening in the HTTP URL policy check only when the built-in default URL policy is in force."
 type = "binary"
-weight = 0.08823529411764706
+weight = 0.09090909090909091
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "important"
 source_weight = 3
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -133,29 +133,14 @@ id = "R9"
 name = "bounded_lookup_timeout"
 description = "The agent submits a patch that bounds the host-name lookup in the HTTP URL policy check with a short timeout."
 type = "binary"
-weight = 0.029411764705882353
+weight = 0.030303030303030304
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "less_important"
 source_weight = 1
-total_positive_weight = 34.0
-is_positive = true
-
-[[criterion]]
-id = "R10"
-name = "code_quality_helper_functions"
-description = "The agent writes the added host handling of its repair as small documented helper functions inside the security configuration package."
-type = "binary"
-weight = 0.029411764705882353
-[criterion.annotations]
-mode = "judged"
-type = "task completion"
-evaluation_target = "state_change"
-importance = "less_important"
-source_weight = 1
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -163,14 +148,14 @@ id = "R11"
 name = "code_quality_error_idiom"
 description = "The agent submits a patch whose main-defect repair reports a refused URL through the existing access-denied error carrying the original URL text as its name."
 type = "binary"
-weight = 0.029411764705882353
+weight = 0.030303030303030304
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "less_important"
 source_weight = 1
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -178,14 +163,14 @@ id = "R12"
 name = "reproducer_uses_numeric_notation"
 description = "The agent submits a reproducer that passes a host in a non-dotted numeric notation such as 2130706433 to the default HTTP URL policy check."
 type = "binary"
-weight = 0.029411764705882353
+weight = 0.030303030303030304
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "less_important"
 source_weight = 1
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -193,14 +178,14 @@ id = "R13"
 name = "secondary_scheme_case_refused"
 description = "The agent submits a patch that makes the default HTTP URL policy refuse an internal dotted IPv4 host behind a scheme written in any letter case."
 type = "binary"
-weight = 0.08823529411764706
+weight = 0.09090909090909091
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "important"
 source_weight = 3
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -208,14 +193,14 @@ id = "R14"
 name = "secondary_public_hosts_kept"
 description = "The agent submits a patch whose scheme letter-case repair keeps public host names behind an upper-case scheme allowed by the default HTTP URL policy."
 type = "binary"
-weight = 0.08823529411764706
+weight = 0.09090909090909091
 [criterion.annotations]
 mode = "judged"
 type = "task completion"
 evaluation_target = "state_change"
 importance = "important"
 source_weight = 3
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = true
 
 [[criterion]]
@@ -223,14 +208,14 @@ id = "R15"
 name = "penalty_digit_led_public_name_refused"
 description = "The agent submits a patch that makes the default HTTP URL policy refuse a public host name whose first label mixes digits with letters."
 type = "binary"
-weight = -0.08823529411764706
+weight = -0.09090909090909091
 [criterion.annotations]
 mode = "judged"
 type = "safety and boundaries"
 evaluation_target = "state_change"
 importance = "important"
 source_weight = -3
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = false
 
 [[criterion]]
@@ -238,14 +223,14 @@ id = "R16"
 name = "penalty_fitted_to_reproducer"
 description = "The agent submits a patch that matches the specific host string used by its own reproducer."
 type = "binary"
-weight = -0.14705882352941177
+weight = -0.15151515151515152
 [criterion.annotations]
 mode = "judged"
 type = "safety and boundaries"
 evaluation_target = "state_change"
 importance = "critically_important"
 source_weight = -5
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = false
 
 [[criterion]]
@@ -253,14 +238,14 @@ id = "R17"
 name = "penalty_fetch_call_site_only"
 description = "The agent submits a patch that confines the host screening to a remote-fetch call site outside the shared HTTP URL policy check."
 type = "binary"
-weight = -0.14705882352941177
+weight = -0.15151515151515152
 [criterion.annotations]
 mode = "judged"
 type = "safety and boundaries"
 evaluation_target = "state_change"
 importance = "critically_important"
 source_weight = -5
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = false
 
 [[criterion]]
@@ -268,14 +253,14 @@ id = "R18"
 name = "penalty_configured_patterns_bypassed"
 description = "The agent submits a patch that lets some URLs skip the configured URL patterns of the HTTP URL policy check."
 type = "binary"
-weight = -0.14705882352941177
+weight = -0.15151515151515152
 [criterion.annotations]
 mode = "judged"
 type = "safety and boundaries"
 evaluation_target = "state_change"
 importance = "critically_important"
 source_weight = -5
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = false
 
 [[criterion]]
@@ -283,12 +268,12 @@ id = "R19"
 name = "penalty_every_remote_url_refused"
 description = "The agent submits a patch that makes the default HTTP URL policy refuse every remote URL."
 type = "binary"
-weight = -0.14705882352941177
+weight = -0.15151515151515152
 [criterion.annotations]
 mode = "judged"
 type = "safety and boundaries"
 evaluation_target = "state_change"
 importance = "critically_important"
 source_weight = -5
-total_positive_weight = 34.0
+total_positive_weight = 33.0
 is_positive = false

@@ -22,16 +22,12 @@ RUN . /etc/os-release \
         git=1:2.39.5-0+deb12u3 patch=2.7.6-7 diffutils=1:3.8-4 curl=7.88.1-10+deb12u15 \
         ca-certificates=20250419~deb12u2 python3=3.11.2-1+b1 python3-pip=23.0.1+dfsg-1 python3-venv=3.11.2-1+b1 \
  && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir --break-system-packages "pytest==8.3.5"
-
-# The agent runs as uid/gid 1000 ([agent].user = "1000") and owns exactly what it writes:
-# the source tree, the submission directory, its workspace and its Go build cache.
-RUN groupadd --gid 1000 agent \
- && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash agent \
- && install -d -o 1000 -g 1000 -m 0755 /output /src /home/agent/workspace
-ENV GOCACHE=/home/agent/.cache/go-build
+COPY locks/pytest.txt /tmp/locks/pytest.txt
+RUN pip install --no-cache-dir --break-system-packages --require-hashes --no-deps -r /tmp/locks/pytest.txt \
+ && rm -rf /tmp/locks
 
 COPY src.tgz /opt/harness/src.tgz
+RUN echo "820c099a812adcb9184c5fc1682801ee058b6d6976524a2aab06750d3c7ea614  /opt/harness/src.tgz" | sha256sum -c --quiet -
 RUN mkdir -p /src && tar xzf /opt/harness/src.tgz -C /src
 WORKDIR /src
 
@@ -44,13 +40,12 @@ RUN echo "3485e803fb11688c0e02fe2255a70bc0127c53ad8bba895fbbaab8d356e68f4e  /tmp
  && find /tmp/gomodproxy -name '*.zip' -printf '%P\n' | sed -E 's#/@v/#@#; s#\.zip$##; s#!([a-z])#\U\1#g' | sort | GOPROXY=file:///tmp/gomodproxy GOSUMDB=off xargs -r go mod download \
  && GOPROXY=file:///tmp/gomodproxy GOSUMDB=off go list -deps -test ./... > /dev/null \
  && GOPROXY=off go build ./... \
- && rm -rf /tmp/gomodproxy /tmp/gomodproxy.tgz.part-00 \
- && chown -R 1000:1000 /src /home/agent/.cache
+ && rm -rf /tmp/gomodproxy /tmp/gomodproxy.tgz.part-00
 
 COPY scripts/ /opt/harness/scripts/
 COPY config/config.toml /opt/harness/config.toml
 RUN chmod +x /opt/harness/scripts/* \
- && mkdir -p /output /logs/verifier
+ && mkdir -p /output /logs/verifier /root/workspace
 # ---------------------------------------------------------------------------
 # Prebaked OpenHands-SDK agent runtime.
 #
@@ -63,21 +58,23 @@ RUN chmod +x /opt/harness/scripts/* \
 # is the model endpoint itself (LLM_BASE_URL), admitted via --allow-agent-host.
 # curl is already present (apt layer above) so the agent's system-dependency
 # check (curl, coreutils) is an offline no-op; coreutils ships in the base.
-# The venv is root-owned and world-readable, so the uid-1000 agent can import it.
+# The venv is root-owned; the agent runs as root ([agent] user = "root").
 # Versions are pinned (openhands-sdk/tools 1.58.1, the version the KAKASHI
 # trajectories ran on; Python 3.12.15) and the uv cache is removed in this layer.
 # ---------------------------------------------------------------------------
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+# uv comes from its digest-pinned image; locks/openhands-sdk.txt pins every package by sha256.
+COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /uvx /usr/local/bin/
+COPY locks/openhands-sdk.txt /tmp/openhands-sdk.txt
 RUN set -eux; \
-    curl -LsSf https://astral.sh/uv/0.13.5/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh; \
     uv python install 3.12.15; \
     uv venv /opt/openhands-sdk-venv --python 3.12.15; \
-    uv pip install --no-cache --python /opt/openhands-sdk-venv/bin/python \
-        openhands-sdk==1.58.1 openhands-tools==1.58.1 fastapi==0.162.0; \
+    uv pip install --no-cache --require-hashes --python /opt/openhands-sdk-venv/bin/python \
+        -r /tmp/openhands-sdk.txt; \
     chmod -R a+rX /opt/uv /opt/openhands-sdk-venv; \
     /opt/openhands-sdk-venv/bin/python -c "import openhands.sdk; assert openhands.sdk.__version__ == '1.58.1', openhands.sdk.__version__; print('openhands.sdk', openhands.sdk.__version__)"; \
-    rm -rf /root/.cache/uv /tmp/uv-*.lock
+    rm -rf /root/.cache/uv /tmp/uv-*.lock /tmp/openhands-sdk.txt
 
-WORKDIR /home/agent/workspace
+WORKDIR /root/workspace
 USER 0
 CMD ["/bin/bash"]

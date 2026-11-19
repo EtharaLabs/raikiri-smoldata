@@ -7,9 +7,9 @@ artifacts = ["/output/59eebdee-339d-5ebf-ac48-d56584624e61_D1_reproducer.patch",
 uuid_v5 = "59eebdee-339d-5ebf-ac48-d56584624e61"
 name = "ethara/59eebdee-339d-5ebf-ac48-d56584624e61"
 version = "1.0.0"
-description = "Find a security defect in github.com/axllent/mailpit, prove it with a regression test, and repair it."
+description = "Find the server-side request forgery check in github.com/axllent/mailpit that treats IPv6 addresses carrying internal IPv4 destinations as external, prove it with a regression test, and repair it; a cross-origin check bypass may also be repaired for a smaller share."
 authors = [{ name = "Krishna Kaushal", email = "krishna.kaushal@ethara.ai" }]
-keywords = ["security", "go", "vulnerability-repair", "regression-test"]
+keywords = ["security", "go", "vulnerability-repair", "regression-test", "ssrf", "ipv6", "cors"]
 
 [metadata]
 null_floor = 0.0
@@ -22,9 +22,13 @@ license = "MIT"
 platforms = ["linux/amd64", "linux/arm64"]
 harbor_release = "0.24.0"
 reward_carrier = "/logs/verifier/reward.json"
-reward_keys = ["deterministic_channel", "judged_channel", "reward"]
+reward_keys = ["pytest", "rubric", "reward"]
 graded_key = "reward"
 full_reward = 1.0
+judge = "openai/gpt-6.1-sol through the codex CLI 0.169.0"
+judge_dependency = "The rubric half needs the codex bridge at CODEX_BRIDGE_URL (default http://172.17.0.1:8788) and its key in KAKASHI_CODEX_BRIDGE_SECRET. Without either, or without an agent trajectory, tests/test.sh records the rubric as UNSCORED in /logs/verifier/rubric_judge_failed.txt and reward = pytest. The judge runs as an unprivileged uid and sets only the rubric value; the pytest value is scored as root before it runs."
+agent_network = "The agent container has no network. The harness admits only the model endpoint (harbor --allow-agent-host); an agent that calls a model API from inside the container needs [agent] network_mode = \"allowlist\" with that host."
+secret_scan_note = "environment/src.tgz contains mailpit/internal/smtpd/smtpd_test.go, an upstream test fixture with a throwaway PEM private key used only by the SMTP TLS tests; it is not a credential."
 
 [[metadata.deliverables]]
 id = "D1"
@@ -59,18 +63,19 @@ entrypoint = "tests/test.sh"
 environment_mode = "separate"
 network_mode = "allowlist"
 allowed_hosts = ["172.17.0.1", "host.docker.internal"]
-timeout_sec = 5400
+timeout_sec = 17400
 reward_file = "/logs/verifier/reward.json"
 
 [verifier.env]
 JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-codex}"
 JUDGE_MODEL = "${JUDGE_MODEL:-openai/gpt-6.1-sol}"
 CODEX_BRIDGE_URL = "${CODEX_BRIDGE_URL:-http://172.17.0.1:8788}"
-KAKASHI_CODEX_BRIDGE_SECRET = "${KAKASHI_CODEX_BRIDGE_SECRET:-codex-bridge}"
+KAKASHI_CODEX_BRIDGE_SECRET = "${KAKASHI_CODEX_BRIDGE_SECRET:-}"
+LITELLM_LOCAL_MODEL_COST_MAP = "True"
 
 [verifier.weights]
-deterministic = 0.5
-judged = 0.5
+pytest = 0.5
+rubric = 0.5
 
 [verifier.robustness]
 reruns = 1
@@ -79,11 +84,13 @@ jitter = false
 [upstream_provenance]
 repo = "https://github.com/axllent/mailpit"
 vulnerable_commit = "2db18f671f729d6582e740cd6147eeef5d0df4d9"
+advisory = "GHSA-w4mc-hhc6-xp28, GHSA-8r62-w5wh-fc5m"
+contamination_note = "The main reference fix and the held-out tests derive from upstream commit a88dadbbe1df016a35a445089ef2a362a6c2de78 (GHSA-w4mc-hhc6-xp28, MIT); the second weakness and its reference repair derive from upstream commit fbe5e006c3f1682b819df58b4a932d7a84920be9 (GHSA-8r62-w5wh-fc5m, 2026-07-26). Both are public and may be in the training data of current models; the held-out list adds the site-local and documentation prefixes and ISATAP forms, and the probe and variant tests are authored for this task."
 
 [rubric]
 judge_file = "tests/judge.toml"
-criteria_count = 18
-positive_weight = 42.0
+criteria_count = 17
+positive_weight = 39.0
 
 [leak_gate]
 private_carriers = [
@@ -101,3 +108,4 @@ containment_threshold = 0.3
 
 [upstream_provenance.source]
 fixed_commit = "a88dadbbe1df016a35a445089ef2a362a6c2de78"
+secondary_fixed_commit = "fbe5e006c3f1682b819df58b4a932d7a84920be9"

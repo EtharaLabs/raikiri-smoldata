@@ -9,7 +9,7 @@ COPY src.tgz ./
 RUN mkdir -p /tree && tar -xzf src.tgz -C /tree
 # The tree stage is throwaway (only /tree/<project> leaves it), so prepare.sh is copied in plainly.
 COPY scripts/prepare.sh /run/task-prepare.sh
-RUN echo "fd8d9f0ea60dd35b1d3e90a0c330b1149d030fc6ecd3037752e5309b52e6cda4  /run/task-prepare.sh" | sha256sum -c --quiet - \
+RUN echo "db1c952e42d9da929e2c85c779b96a319a85bb8276e6703588b01ef494f5e558  /run/task-prepare.sh" | sha256sum -c --quiet - \
  && bash /run/task-prepare.sh tree
 
 FROM --platform=$BUILDPLATFORM docker.io/library/node:22-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS nodedeps
@@ -32,12 +32,12 @@ COPY scripts/prepare.sh /run/task-prepare.sh
 COPY scripts/compile.sh scripts/run_poc.sh scripts/test.sh scripts/mkpatch.sh /run/task-scripts/
 COPY config/config.toml /run/task-config/config.toml
 COPY install_validate_deps.sh /run/task-install_validate_deps.sh
-RUN echo "fd8d9f0ea60dd35b1d3e90a0c330b1149d030fc6ecd3037752e5309b52e6cda4  /run/task-prepare.sh" | sha256sum -c --quiet - \
+RUN echo "db1c952e42d9da929e2c85c779b96a319a85bb8276e6703588b01ef494f5e558  /run/task-prepare.sh" | sha256sum -c --quiet - \
  && bash /run/task-prepare.sh runtime \
  && printf '%s\n' "0a78957364ec8218bd43c17aeb9d238c50291e1a13d469a4a56ab2b2a72c9cd6  /run/task-scripts/compile.sh" \
         "39689c94f8799d0257e34d3cebdddf914bf7d6a602f80b0348530c3082c246d7  /run/task-scripts/run_poc.sh" \
         "ba5379aea89172017dbb4622d515b2c7068a76afc262870437d38eaa83d7b7df  /run/task-scripts/test.sh" \
-        "b5a5623628aa03442253fcfacbc3169718f699ba5528f61b84fb1772fb1febec  /run/task-scripts/mkpatch.sh" \
+        "b197bda806b1502a9611f259eacfc4ddd36f6edd0521b2825a279d5764237a48  /run/task-scripts/mkpatch.sh" \
         "a3b7c742e3f1e8cac4e0f68852ba1e489307c3ab6ab11f8010f0fdc0d2fd3207  /run/task-config/config.toml" \
         "419a4e01d9d0ed4dae4c027eeba3b2bff0026780ac842e02b1cc4fdc7b90e5ca  /run/task-install_validate_deps.sh" | sha256sum -c --quiet - \
  && install -d -o root -g root -m 0755 /opt/harness /opt/harness/scripts \
@@ -102,12 +102,15 @@ USER 0
 RUN apt-get update && apt-get install -y --no-install-recommends curl=8.14.1-2+deb13u5 ca-certificates=20250419 \
     && rm -rf /var/lib/apt/lists/*
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+# uv comes from its digest-pinned image; locks/openhands-sdk.txt pins every package by sha256.
+COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /uvx /usr/local/bin/
+COPY locks/openhands-sdk.txt /tmp/openhands-sdk.txt
 RUN set -eux; \
-    curl -LsSf https://astral.sh/uv/0.13.5/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh; \
     uv python install 3.12.15; \
     uv venv /opt/openhands-sdk-venv --python 3.12.15; \
-    uv pip install --no-cache --python /opt/openhands-sdk-venv/bin/python \
-        openhands-sdk==1.58.1 openhands-tools==1.58.1 fastapi==0.162.0; \
+    uv pip install --no-cache --require-hashes --python /opt/openhands-sdk-venv/bin/python \
+        -r /tmp/openhands-sdk.txt; \
+    rm -f /tmp/openhands-sdk.txt; \
     chmod -R a+rX /opt/uv /opt/openhands-sdk-venv; \
     /opt/openhands-sdk-venv/bin/python -c "import openhands.sdk; assert openhands.sdk.__version__ == '1.58.1', openhands.sdk.__version__; print('openhands.sdk', openhands.sdk.__version__)"; \
     rm -rf /root/.cache/uv /home/agent/.cache/uv /tmp/uv-*.lock; \

@@ -4,15 +4,32 @@
 set -u
 LOGDIR=/logs/verifier
 mkdir -p "$LOGDIR"
+# Every exit leaves a reward: a step that aborts before the reward is written scores 0.
+rm -f "$LOGDIR/reward.json"
+fail_closed() {
+    [ -s "$LOGDIR/reward.json" ] && return 0
+    echo "the verifier exited before writing a reward; scored 0" > "$LOGDIR/reward_fail_closed.txt"
+    printf '{\n  "pytest": 0.0,\n  "reward": 0.0\n}\n' > "$LOGDIR/reward.json"
+}
+trap fail_closed EXIT
 unset LD_PRELOAD LD_LIBRARY_PATH LD_AUDIT DYLD_INSERT_LIBRARIES PYTHONPATH PYTHONHOME PYTHONSTARTUP
-# Fixed host entry for the judge endpoint. The verifier runs on a user-defined
-# docker network where the only resolver is 127.0.0.11 and the egress sidecar
-# blocks DNS to anything else, so the claude CLI gets EAI_AGAIN resolving
-# api.anthropic.com. Pin it to Anthropic's stable prefix (160.79.104.0/24); gost
-# still SNI-filters the TLS connection against the allowlist, so this grants no
-# extra reach and needs no DNS egress.
-grep -q 'api\.anthropic\.com' /etc/hosts 2>/dev/null || \
-    echo '160.79.104.10 api.anthropic.com' >> /etc/hosts
+# Route the codex CLI to the host codex bridge. Rewardkit gives codex a fresh
+# CODEX_HOME per judge call and codex ignores OPENAI_BASE_URL, so the provider goes
+# in the system-wide managed config. The bridge swaps the stub key for the ChatGPT
+# subscription token; the bridge serves the Responses API over HTTP only.
+write_codex_bridge_config() {
+    mkdir -p /etc/codex
+    cat > /etc/codex/managed_config.toml <<EOF
+model_provider = "codex-bridge"
+
+[model_providers.codex-bridge]
+name = "codex bridge"
+base_url = "${CODEX_BRIDGE_URL%/}/v1"
+env_key = "CODEX_API_KEY"
+wire_api = "responses"
+supports_websockets = false
+EOF
+}
 cd "$(dirname "$0")"
 RK=/tests/reward
 
@@ -104,10 +121,25 @@ grader_trusted() {
         setpriv --reuid="$GRADER_UID" --regid="$GRADER_UID" --clear-groups \
             --no-new-privs -- "$@"
 }
+# PIDs whose real uid is $1, read from /proc/*/status (the image has no procps; the
+# grader runs non-dumpable, so /proc/<pid> itself is root-owned).
+uid_pids() {
+    awk -v u="$1" '/^Uid:/ { if ($2 == u) { split(FILENAME, f, "/"); print f[3] }; nextfile }' \
+        /proc/[0-9]*/status 2>/dev/null
+}
+reap_uid() {
+    local pids
+    for _ in 1 2 3 4 5; do
+        pids="$(uid_pids "$1")"; [ -z "$pids" ] && return 0
+        kill -KILL $pids 2>/dev/null || true; sleep 1
+    done
+    [ -z "$(uid_pids "$1")" ]
+}
 grader_reap() {
-    for _ in 1 2 3 4 5; do pkill -KILL -u "$GRADER_UID" 2>/dev/null || break; sleep 1; done
-    if pgrep -u "$GRADER_UID" >/dev/null 2>&1; then
-        echo "ERROR: grader processes survived; refusing to trust their results" >&2; exit 1
+    if ! reap_uid "$GRADER_UID"; then
+        echo "ERROR: grader processes survived; refusing to trust their results" >&2
+        echo "grader processes survived the reap" > "$LOGDIR/reward_fail_closed.txt"
+        printf '{\n  "pytest": 0.0,\n  "reward": 0.0\n}\n' > "$LOGDIR/reward.json"; exit 0
     fi
 }
 GRADER_PY='import ctypes, runpy, sys
@@ -159,7 +191,7 @@ export TESTS_DIR=/tests VERIFIER_LOGS="$LOGDIR" VERIFIER_LOG_DIR="$LOGDIR"
 tail -n 10 "$LOGDIR/pytest-stdout.txt" 2>/dev/null || true
 
 # JUnit -> CTRF
-python3 - "$LOGDIR/junit.xml" "$LOGDIR/ctrf.json" <<'PYEOF'
+python3 - "$LOGDIR/junit.xml" "$LOGDIR/ctrf.json" <<'PYEOF' || echo "[ctrf] junit.xml unreadable; the reward step scores the missing results" >&2
 import json, pathlib, sys, xml.etree.ElementTree as ET
 junit, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
 root = ET.parse(junit).getroot()
@@ -182,14 +214,18 @@ print(f"[ctrf] {len(tests)} tests -> {out}")
 PYEOF
 
 # 4. reward: pytest ledger (+ rubric judge when configured), else pytest alone
-JUDGE_TRANSPORT="${JUDGE_TRANSPORT:-claude-code}"
+# The judge: GPT 6.1 Sol through the codex CLI and the host codex bridge.
+JUDGE_TRANSPORT="${JUDGE_TRANSPORT:-codex}"
+JUDGE_MODEL="${JUDGE_MODEL:-openai/gpt-6.1-sol}"
 SKIP_REASON=""
 if [ "${JUDGE_SKIP:-0}" = 1 ]; then SKIP_REASON="JUDGE_SKIP=1"
 elif [ ! -s "$RK/rubric/judge.toml" ]; then SKIP_REASON="no rubric"
-elif [ -z "${JUDGE_MODEL:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-  SKIP_REASON="no judge model or API key configured"
-elif [ "$JUDGE_TRANSPORT" = claude-code ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}${ANTHROPIC_API_KEY:-}" ]; then SKIP_REASON="no Claude login (CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY are empty)"
-elif [ "$JUDGE_TRANSPORT" = claude-code ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}${ANTHROPIC_API_KEY:-}" ]; then SKIP_REASON="no Claude login (CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY are empty)"
+elif [ "$JUDGE_TRANSPORT" != codex ]; then SKIP_REASON="unsupported judge transport $JUDGE_TRANSPORT (codex only)"
+elif [ -z "${CODEX_BRIDGE_URL:-}" ] || [ -z "${KAKASHI_CODEX_BRIDGE_SECRET:-}" ]; then
+  SKIP_REASON="no codex bridge (CODEX_BRIDGE_URL / KAKASHI_CODEX_BRIDGE_SECRET are empty)"
+# An unreachable bridge makes codex retry every criterion until its timeout.
+elif ! curl -fsS -m 10 -o /dev/null "${CODEX_BRIDGE_URL%/}/healthz"; then
+  SKIP_REASON="codex bridge unreachable at ${CODEX_BRIDGE_URL%/}/healthz"
 fi
 if [ -z "$SKIP_REASON" ] && ! python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("steps") else 1)' "$TRAJ" 2>/dev/null; then
   SKIP_REASON="no agent trajectory available to the judge"
@@ -203,37 +239,77 @@ elif [ -s "$TRAJ" ]; then
     cp "$TRAJ" "$JW/trajectory.json"
 fi
 cp -a /output/. "$JW/workspace/" 2>/dev/null || true
-RK_OUT="$LOGDIR/rewardkit-stdout.txt"; : > "$RK_OUT"; JUDGE_RAN=0
-if [ -z "$SKIP_REASON" ]; then
-  if REWARDKIT_JUDGE="$JUDGE_TRANSPORT" REWARDKIT_MODEL="${JUDGE_MODEL:-}" \
-      /opt/rewardkit/.venv/bin/rewardkit --yolo --max-concurrent-agent 1 "$RK" --workspace "$JW" --output "$LOGDIR/reward.json" >> "$RK_OUT" 2>&1 \
-      && [ -s "$LOGDIR/reward.json" ]; then JUDGE_RAN=1; fi
-else
-  echo "[reward] rubric channel UNSCORED: $SKIP_REASON" >> "$RK_OUT"
+RK_OUT="$LOGDIR/rewardkit-stdout.txt"; : > "$RK_OUT"
+
+# The pytest channel is scored here, as root, from the ctrf.json written above.
+# A ledger that exits non-zero may have scored only part of the tests, so it scores 0.
+if ! /opt/rewardkit/.venv/bin/rewardkit "$RK/pytest" --workspace /output --output "$LOGDIR/reward.json" >> "$RK_OUT" 2>&1; then
+  echo "the pytest ledger exited non-zero; pytest scored 0" > "$LOGDIR/ledger_failed.txt"
+  rm -f "$LOGDIR/reward.json"
 fi
-if [ "$JUDGE_RAN" = 0 ]; then
-  /opt/rewardkit/.venv/bin/rewardkit "$RK/pytest" --workspace /output --output "$LOGDIR/reward.json" >> "$RK_OUT" 2>&1 || true
-  python3 - "$LOGDIR/reward.json" <<'PYEOF'
-import json,sys,pathlib
-p=pathlib.Path(sys.argv[1])
-try: d=json.loads(p.read_text())
+PYTEST_SCORE="$(python3 - "$LOGDIR/reward.json" <<'PYEOF'
+import json,math,sys
+try: d=json.load(open(sys.argv[1]))
 except Exception: d={}
 r=d.get("reward", d.get("score"))
-if isinstance(r,(int,float)): p.write_text(json.dumps({"pytest":r,"reward":r},indent=2))
+print(r if isinstance(r,(int,float)) and math.isfinite(r) else 0.0)
 PYEOF
+)"
+rm -f "$LOGDIR/reward.json" "$LOGDIR/reward-details.json"
+
+# The judge runs codex with full access over agent-written text, so it runs as its own
+# unprivileged uid that can write only its private run directory and the judge workspace.
+# Its result supplies the rubric value alone; the pytest value above cannot be changed by it.
+JUDGE_UID=64002
+JRUN=/tmp/kakashi-judge
+JUDGE_RAN=0
+RUBRIC_SCORE=""
+if [ -z "$SKIP_REASON" ]; then
+  write_codex_bridge_config
+  rm -rf "$JRUN" && mkdir -p "$JRUN/rk" "$JRUN/home" "$JRUN/tmp" "$JRUN/out" "$JRUN/logs"
+  cp -a "$RK/rubric" "$JRUN/rk/rubric"
+  chown -R "$JUDGE_UID:$JUDGE_UID" "$JRUN" "$JW"
+  chmod 700 "$JRUN"
+  # Rewardkit hands OPENAI_API_KEY to codex as CODEX_API_KEY; here it is the bridge's stub.
+  if env -i PATH="$PATH" HOME="$JRUN/home" TMPDIR="$JRUN/tmp" LC_ALL=C.UTF-8 \
+        OPENAI_API_KEY="$KAKASHI_CODEX_BRIDGE_SECRET" REWARDKIT_JUDGE="$JUDGE_TRANSPORT" \
+        REWARDKIT_MODEL="$JUDGE_MODEL" REWARDKIT_LOG_DIR="$JRUN/logs" \
+        LITELLM_LOCAL_MODEL_COST_MAP=True \
+        setpriv --reuid="$JUDGE_UID" --regid="$JUDGE_UID" --clear-groups --no-new-privs -- \
+        /opt/rewardkit/.venv/bin/rewardkit --yolo --max-concurrent-agent 1 "$JRUN/rk" \
+        --workspace "$JW" --output "$JRUN/out/reward.json" >> "$RK_OUT" 2>&1; then
+    RUBRIC_SCORE="$(python3 -c 'import json,math,sys
+d=json.load(open(sys.argv[1])); r=d.get("rubric")
+print(r if isinstance(r,(int,float)) and math.isfinite(r) else "")' "$JRUN/out/reward.json" 2>/dev/null || true)"
+  fi
+  reap_uid "$JUDGE_UID" || true
+  if [ -n "$RUBRIC_SCORE" ]; then
+    JUDGE_RAN=1
+    cp "$JRUN/out/reward-details.json" "$LOGDIR/reward-details.json" 2>/dev/null || true
+    for f in "$JRUN"/logs/trajectory.*; do [ -f "$f" ] && cp "$f" "$LOGDIR/"; done
+  else
+    SKIP_REASON="the judge failed: $(grep -E 'rror' "$RK_OUT" | tail -n 1 | cut -c1-400)"
+  fi
+  rm -rf "$JRUN"
+  chown -R root:root "$JW" 2>/dev/null || true
 fi
-# record step: negative-rubric floor and 0.5/0.5 recombine, no gate
-python3 - "$LOGDIR/reward.json" <<'PYEOF'
+[ "$JUDGE_RAN" = 0 ] && echo "[reward] rubric channel UNSCORED: $SKIP_REASON" | tee -a "$RK_OUT" > "$LOGDIR/rubric_judge_failed.txt"
+# record step: negative-rubric floor and 0.5/0.5 combine; with no rubric, reward = pytest
+python3 - "$LOGDIR/reward.json" "$PYTEST_SCORE" "$RUBRIC_SCORE" <<'PYEOF'
 import json,sys,pathlib
 p=pathlib.Path(sys.argv[1])
-try: reward=json.loads(p.read_text())
-except Exception: sys.exit(0)
-if isinstance(reward.get("rubric"),(int,float)) and reward["rubric"]<0:
-    reward["rubric_unclamped"] = reward["rubric"]
-    reward["rubric"] = 0.0
-    if isinstance(reward.get("pytest"),(int,float)):
-        reward["reward"]=round(0.5*reward["pytest"]+0.5*reward["rubric"],4)
-    p.write_text(json.dumps(reward,indent=2))
+pytest=float(sys.argv[2])
+reward={"pytest":pytest}
+if sys.argv[3]:
+    rubric=float(sys.argv[3])
+    if rubric<0:
+        reward["rubric_unclamped"]=rubric
+        rubric=0.0
+    reward["rubric"]=rubric
+    reward["reward"]=round(0.5*pytest+0.5*rubric,4)
+else:
+    reward["reward"]=pytest
+p.write_text(json.dumps(reward,indent=2))
 PYEOF
 # emit judge.json (judge provenance for delivery tooling) derived from reward-details
 python3 - "$LOGDIR/reward-details.json" "$LOGDIR/judge.json" <<'PYEOF'

@@ -50,6 +50,21 @@ def test_reproducer_passes_reference():
     assert _S["d1_passes_reference"] is True, "reproducer must pass on the reference repair"
 
 
+def test_reproducer_rejects_partial_repair_identity():
+    assert _S["d1_catches_partial_service_account"] is True and _d1_valid(), \
+        "reproducer must fail on a repair that leaves the pod identity setting open"
+
+
+def test_reproducer_rejects_partial_repair_pod_patch():
+    assert _S["d1_catches_partial_pod_patch"] is True and _d1_valid(), \
+        "reproducer must fail on a repair that leaves the pod specification patch open"
+
+
+def test_reproducer_rejects_partial_repair_pod_metadata():
+    assert _S["d1_catches_partial_pod_metadata"] is True and _d1_valid(), \
+        "reproducer must fail on a repair that leaves the pod metadata setting open"
+
+
 def test_reproducer_test_only():
     assert _S["d1_test_only"] is True, "reproducer patch must contain only test file changes"
 

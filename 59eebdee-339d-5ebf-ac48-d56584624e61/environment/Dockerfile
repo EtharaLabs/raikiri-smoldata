@@ -9,7 +9,7 @@ COPY src.tgz ./
 RUN mkdir -p /tree && tar -xzf src.tgz -C /tree
 # The tree stage is throwaway (only /tree/<project> leaves it), so prepare.sh is copied in plainly.
 COPY scripts/prepare.sh /run/task-prepare.sh
-RUN echo "c37c103cc40171c2774ee61b3e84e2b914ed396fc4a0e738fd59fa0833f7c4fe  /run/task-prepare.sh" | sha256sum -c --quiet - \
+RUN echo "185b55d07e5e07e1917a8e93a898ccf76e208ab741cff974aad76009406db380  /run/task-prepare.sh" | sha256sum -c --quiet - \
  && bash /run/task-prepare.sh tree
 
 FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.25.0@sha256:5502b0e56fca23feba76dbc5387ba59c593c02ccc2f0f7355871ea9a0852cebe AS gomod
@@ -38,7 +38,7 @@ COPY scripts/prepare.sh /run/task-prepare.sh
 COPY scripts/compile.sh scripts/run_poc.sh scripts/test.sh scripts/mkpatch.sh /run/task-scripts/
 COPY config/config.toml /run/task-config/config.toml
 COPY install_validate_deps.sh /run/task-install_validate_deps.sh
-RUN echo "c37c103cc40171c2774ee61b3e84e2b914ed396fc4a0e738fd59fa0833f7c4fe  /run/task-prepare.sh" | sha256sum -c --quiet - \
+RUN echo "185b55d07e5e07e1917a8e93a898ccf76e208ab741cff974aad76009406db380  /run/task-prepare.sh" | sha256sum -c --quiet - \
  && bash /run/task-prepare.sh runtime \
  && printf '%s\n' "0a78957364ec8218bd43c17aeb9d238c50291e1a13d469a4a56ab2b2a72c9cd6  /run/task-scripts/compile.sh" \
         "39689c94f8799d0257e34d3cebdddf914bf7d6a602f80b0348530c3082c246d7  /run/task-scripts/run_poc.sh" \
@@ -110,12 +110,15 @@ USER 0
 RUN apt-get update && apt-get install -y --no-install-recommends curl=8.14.1-2+deb13u5 ca-certificates=20250419 \
     && rm -rf /var/lib/apt/lists/*
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+# uv comes from its digest-pinned image; locks/openhands-sdk.txt pins every package by sha256.
+COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /uvx /usr/local/bin/
+COPY locks/openhands-sdk.txt /tmp/openhands-sdk.txt
 RUN set -eux; \
-    curl -LsSf https://astral.sh/uv/0.13.5/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh; \
     uv python install 3.12.15; \
     uv venv /opt/openhands-sdk-venv --python 3.12.15; \
-    uv pip install --no-cache --python /opt/openhands-sdk-venv/bin/python \
-        openhands-sdk==1.58.1 openhands-tools==1.58.1 fastapi==0.162.0; \
+    uv pip install --no-cache --require-hashes --python /opt/openhands-sdk-venv/bin/python \
+        -r /tmp/openhands-sdk.txt; \
+    rm -f /tmp/openhands-sdk.txt; \
     chmod -R a+rX /opt/uv /opt/openhands-sdk-venv; \
     /opt/openhands-sdk-venv/bin/python -c "import openhands.sdk; assert openhands.sdk.__version__ == '1.58.1', openhands.sdk.__version__; print('openhands.sdk', openhands.sdk.__version__)"; \
     rm -rf /root/.cache/uv /home/agent/.cache/uv /tmp/uv-*.lock; \

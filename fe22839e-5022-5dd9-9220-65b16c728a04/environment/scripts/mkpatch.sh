@@ -46,7 +46,7 @@ for rel in sorted(set(old) | set(new)):
     da, db = (a.read_bytes() if a else b""), (b.read_bytes() if b else b"")
     if da == db:
         continue
-    if b"\\0" in da[:8192] or b"\\0" in db[:8192]:
+    if b"\0" in da[:8192] or b"\0" in db[:8192]:
         print(f"Binary files a/{rel} and b/{rel} differ")
         continue
     la = da.decode("utf-8", "replace").splitlines(keepends=True)

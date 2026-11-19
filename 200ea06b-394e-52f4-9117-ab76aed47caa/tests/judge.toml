@@ -14,8 +14,8 @@ aggregation = "weighted-sum"
 
 [[criterion]]
 id = "R1"
-name = "async_value_never_reaches_answer"
-description = "The agent changes the promise branch of validateParam so the resolved async value never passes through the answer helper."
+name = "async_value_never_unwrapped"
+description = "The agent changes validateParam so that, on every path of the promise branch, the value an async validator resolves with is never read for `error` or `value` properties."
 type = "binary"
 weight = 0.13157894736842105
 
@@ -206,8 +206,8 @@ is_positive = true
 
 [[criterion]]
 id = "R13"
-name = "small_local_promise_edit"
-description = "The agent writes its async result fix as a small local edit to the existing promise chain."
+name = "small_local_async_fix"
+description = "The agent keeps its async result fix small and local to validateParam and the helper it calls, and the synchronous custom-compiler result is handled as before."
 type = "binary"
 weight = 0.02631578947368421
 

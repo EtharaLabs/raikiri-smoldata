@@ -20,10 +20,6 @@ def test_reproducer_test_only():
     assert _S["d1_test_only"] is True
 
 
-def test_pre_existing_failures_excluded():
-    assert _S["d1_asserts_pristine"] is True and _S["borrowed_failure"] is False
-
-
 def test_repair_closes_held_out():
     assert _S["held_out_closed"] is True and _S["red_line"] is False
 

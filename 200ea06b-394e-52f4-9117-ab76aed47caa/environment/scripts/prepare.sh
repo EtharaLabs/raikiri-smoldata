@@ -1,8 +1,8 @@
 #!/bin/bash -eu
 # prepare.sh <stage>: materialise this task's environment helper files at image build time.
-# environment/Dockerfile verifies this script's sha256 and runs it through a build-time bind mount,
-# so the script itself is never part of the image. Every file is written byte-for-byte and checked
-# against its recorded sha256; any mismatch fails the image build.
+# environment/Dockerfile copies this script into throwaway build stages, verifies its sha256 and runs
+# it there, so the script itself never reaches the task image. Every file is written byte-for-byte
+# and checked against its recorded sha256; any mismatch fails the image build.
 set -euo pipefail
 
 put() {  # put <dest> <mode> <sha256> <text|b64>   (content on stdin)

@@ -11,8 +11,8 @@ names containing `localhost`, so two families of internal hosts pass:
    or `0x0a.0.0.1`. These reach loopback, private (10/8, 172.16/12, 192.168/16), link-local and
    metadata (169.254.169.254) and unspecified (`0`) addresses.
 2. **Host names that resolve to internal addresses**: a hosts-file alias such as
-   `ip6-loopback` (`::1`) or the machine's own host name (a private address). No textual rule
-   can see where a name points.
+   `ip6-loopback` (`::1`), the machine's own host name (a private address), or a DNS record that
+   points inside the network. No textual rule can see where a name points.
 
 `resources.GetRemote` and the remote-fetch paths call `Config.CheckAllowedHTTPURL`, so a
 template can make a site build fetch from these hosts.
@@ -61,7 +61,7 @@ directive -5, external network call -3, withheld-reproducer copy -5.
 | `test_ground_truth_poc_neutralized_by_patch` | 5 | `tests/data/poc.bin`: loopback numeric encodings | crash | clean |
 | `test_patched_variant_poc_neutralized` | 3 | embedded: private, metadata and unspecified encodings | crash | clean |
 | `test_patched_octal_variant_poc_neutralized` | 3 | embedded: octal and short inet_aton forms | crash | clean |
-| `test_patched_resolved_host_poc_neutralized` | 5 | embedded: `ip6-loopback` and the container host name | crash | clean |
+| `test_patched_resolved_host_poc_neutralized` | 5 | embedded: names answered by a loopback name server with IPv4 and IPv6 loopback addresses | crash | clean |
 | `test_patched_internal_name_classes_neutralized` | 5 | embedded: names answered by a loopback name server with private, link-local and unspecified addresses (refused) and one public address (allowed) | crash | clean |
 | `test_patched_public_hosts_preserved` | 1 | embedded: public names plus an explicit user policy | clean | clean |
 | `test_patched_user_policy_spelling_preserved` | 3 | embedded: explicit user deny rules written against a numeric host spelling still refuse those URLs; other URLs stay admitted | clean | clean |
@@ -86,3 +86,30 @@ refuses every digit-led host fails the preservation test.
 - 2026-11-01 round 11 hardening: held-out name-classes probe (+5, loopback name server), P4 reweight (P 33 -> 28), 18-row completeness rubric (RP 57 -> 28) with a host-names-by-spelling penalty; report hardening-reports/01a096f0-c303-5ccb-aefb-126ac0415889.md
 - 2026-11-04 round 13: observable-symptom sentence restored; same-class second weakness (mixed-case scheme, GHSA-pmrv-x7gp-2rjw) graded at +3 +3 tests and +3 +3 rubric rows (P 28 -> 34, RP 28 -> 34); blanket wrong-target judge rule replaced by per-row framing; penalties text-normalization-only, host-names-by-spelling and numeric-hosts-by-spelling dropped, patterns-bypassed and every-URL-refused added; R15 reworded to a first label mixing digits with letters (lead review); report round13/reports/01a096f0.md
 - 2026-11-05 round 14: explicit-user-policy preservation test added at +3 (P 34 -> 37); R10 and the judge framing no longer mark a quality row "no" for a partial repair; report round14/reports/01a096f0.md
+- 2026-11-19 round 18: instruction trimmed to requirement level after the round-17 Opus run (reward 0.486 -> 0.955) followed test-level detail: dropped the resolved-address class list, "in the policy check itself", the explicit `security.http.urls` clause (covered by "explicit user configuration keeps working exactly as written"), "(short timeout)", the `config/`/`tpl/` scope sentence (`test_patch_scope_limited_to_library`, weight 1, is now unstated), the non-dotted-number reproducer clause and the credit split; judge copy kept identical; grader unchanged
+
+## Grading decisions
+
+- Verdicts (`tests/validate.py`, `tests/test_output.py`). A reproducer gets at least 600 s to
+  build and 60 s to run. A build or run that times out is an `error`, never `clean`. A program the
+  grader owns (`tests/data/poc.bin` and the embedded programs) counts as `clean` only when it exits
+  0 and prints its own success line, so a repair that ends the process or breaks the program's own
+  name lookups (the program then prints SKIP) earns nothing. The agent's reproducer is judged by
+  exit status alone, as the instruction states. All builds in one session share one Go build cache.
+- Each verdict runs in a fresh copy of the tree it judges (`_verdict`), so a program cannot change
+  the tree that later verdicts build. Residual risk: the agent's reproducer still runs as the grader
+  uid, so while pytest runs it can write to other grader-owned paths (the shared build cache, the
+  embedded programs' temp files) or leave a background process. `tests/test.sh` kills every
+  grader-uid process before it reads the results and checks that `/output` did not change, but
+  cannot detect such writes mid-run. A second unprivileged uid for the agent's reproducer would
+  close this; the verifier runs the grader without the privileges to switch uids, so it is not done.
+- The rubric has 18 criteria with positive total RP 33 (R10, small documented helpers, was removed;
+  the remaining ids keep their numbers). The instruction states R9 (bounded lookup) and R11
+  (existing access-denied error carrying the URL). Since round 18 it no longer asks for a single
+  non-dotted numeric host in the reproducer, so R12 is judged without a prompt statement.
+- Verifier timeout (`task.toml [verifier] timeout_sec = 28200`). Worst case from the code:
+  2 tree extractions x 120 s + 2 builds x 900 s (`BUILD_TIMEOUT`) + git init and apply 2 x 120 s
+  + 24 verdicts x 660 s (600 s build + 60 s run) + 2 `go test` runs x 900 s (`GO_TEST_TIMEOUT`)
+  = 19,920 s for pytest; 18 criteria x 300 s judge timeout at concurrency 1 = 5,400 s; about 60 s
+  for the other steps and the reaps. Total 25,380 s; plus 10% = 27,918 s; rounded up to a multiple
+  of 600 = 28,200 s. The oracle took about 12 minutes without the judge.

@@ -22,9 +22,12 @@ license = "BSD-3-Clause"
 platforms = ["linux/amd64", "linux/arm64"]
 harbor_release = "0.24.0"
 reward_carrier = "/logs/verifier/reward.json"
-reward_keys = ["deterministic_channel", "judged_channel", "reward"]
+reward_keys = ["pytest", "rubric", "reward"]
 graded_key = "reward"
 full_reward = 1.0
+judge = "openai/gpt-6.1-sol through the codex CLI 0.169.0"
+judge_dependency = "The rubric half needs the codex bridge at CODEX_BRIDGE_URL (default http://172.17.0.1:8788) and its key in KAKASHI_CODEX_BRIDGE_SECRET. Without either, or without an agent trajectory, tests/test.sh records the rubric as UNSCORED in /logs/verifier/rubric_judge_failed.txt and reward = pytest. The judge runs as an unprivileged uid and sets only the rubric value; the pytest value is scored as root before it runs."
+agent_network = "The agent container has no network. The harness admits only the model endpoint (harbor --allow-agent-host); an agent that calls a model API from inside the container needs [agent] network_mode = \"allowlist\" with that host."
 
 [[metadata.deliverables]]
 id = "D1"
@@ -59,18 +62,19 @@ entrypoint = "tests/test.sh"
 environment_mode = "separate"
 network_mode = "allowlist"
 allowed_hosts = ["172.17.0.1", "host.docker.internal"]
-timeout_sec = 5400
+timeout_sec = 18000
 reward_file = "/logs/verifier/reward.json"
 
 [verifier.env]
 JUDGE_TRANSPORT = "${JUDGE_TRANSPORT:-codex}"
 JUDGE_MODEL = "${JUDGE_MODEL:-openai/gpt-6.1-sol}"
 CODEX_BRIDGE_URL = "${CODEX_BRIDGE_URL:-http://172.17.0.1:8788}"
-KAKASHI_CODEX_BRIDGE_SECRET = "${KAKASHI_CODEX_BRIDGE_SECRET:-codex-bridge}"
+KAKASHI_CODEX_BRIDGE_SECRET = "${KAKASHI_CODEX_BRIDGE_SECRET:-}"
+LITELLM_LOCAL_MODEL_COST_MAP = "True"
 
 [verifier.weights]
-deterministic = 0.5
-judged = 0.5
+pytest = 0.5
+rubric = 0.5
 
 [verifier.robustness]
 reruns = 1
@@ -79,11 +83,13 @@ jitter = false
 [upstream_provenance]
 repo = "https://github.com/fastify/fast-uri"
 vulnerable_commit = "a34ced25d015d12dfc2b0cf85ce01a4a0d12ecf6"
+advisory = "GHSA-jvvf-x445-j334, GHSA-wjr9-j795-jxcr"
+contamination_note = "The held-out tests and the main reference fix derive from upstream commit f40a88f33e684a46faec3f5b820bcbb1e85add64 (BSD-3-Clause, GHSA-jvvf-x445-j334 / CVE-2026-86818), public since 2026-09-14; the second-weakness fix ports upstream commit f6d46dfeab025d0c440485f4ae29fa4f14707646 (GHSA-wjr9-j795-jxcr / CVE-2026-110180), public since 2026-10-10. Both may be in the training data of current models; the held-out serialization assertion is loosened from upstream to accept any header order."
 
 [rubric]
 judge_file = "tests/judge.toml"
-criteria_count = 21
-positive_weight = 44.0
+criteria_count = 19
+positive_weight = 42.0
 
 [leak_gate]
 private_carriers = [
@@ -101,3 +107,4 @@ containment_threshold = 0.3
 
 [upstream_provenance.source]
 fixed_commit = "f40a88f33e684a46faec3f5b820bcbb1e85add64"
+secondary_fixed_commit = "f6d46dfeab025d0c440485f4ae29fa4f14707646"

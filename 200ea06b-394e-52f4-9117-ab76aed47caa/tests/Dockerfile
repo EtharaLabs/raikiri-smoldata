@@ -50,8 +50,9 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
 COPY --from=nodedeps --chown=root:root /fetch/node_modules /opt/deps/node_modules
 # system-pytest-for-grader: the sandboxed grader runs the pytest oracle with the image
 # python, so pytest must be importable there (the reference installs it the same way).
+COPY locks/pytest.txt /tmp/locks/pytest.txt
 RUN ln -s /opt/deps/node_modules /grade/fastify/node_modules \
- && pip install --no-cache-dir "pytest==8.3.5"
+ && pip install --no-cache-dir --require-hashes --no-deps -r /tmp/locks/pytest.txt
 
 # --------------------------------------------------------------------------- #
 
@@ -60,23 +61,42 @@ RUN ln -s /opt/deps/node_modules /grade/fastify/node_modules \
 # --------------------------------------------------------------------------- #
 RUN apt-get update && apt-get install -y --no-install-recommends curl=8.14.1-2+deb13u5 ca-certificates=20250419 \
     && rm -rf /var/lib/apt/lists/*
-RUN curl -fsSL https://astral.sh/uv/0.13.5/install.sh \
-      | env UV_INSTALL_DIR=/usr/local/bin sh \
-    && export UV_PYTHON_INSTALL_DIR=/opt/rewardkit/python UV_NO_PROGRESS=1 \
+# uv comes from its digest-pinned image; locks/rewardkit.txt pins every package by sha256.
+COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /uvx /usr/local/bin/
+COPY locks/rewardkit.txt /tmp/locks/rewardkit.txt
+RUN export UV_PYTHON_INSTALL_DIR=/opt/rewardkit/python UV_NO_PROGRESS=1 \
     && uv python install "3.13.17" \
     && uv venv --python "3.13.17" /opt/rewardkit/.venv \
-    && uv pip install --python /opt/rewardkit/.venv/bin/python \
-         "harbor-rewardkit==0.2.3" "pytest==8.3.5" \
+    && uv pip install --require-hashes --python /opt/rewardkit/.venv/bin/python -r /tmp/locks/rewardkit.txt \
+    && rm -rf /tmp/locks \
     && /opt/rewardkit/.venv/bin/python -c "import rewardkit, pytest; import importlib.metadata as md; assert md.version('harbor-rewardkit') == '0.2.3'" \
     && /opt/rewardkit/.venv/bin/rewardkit --help >/dev/null
-ENV PATH="/opt/rewardkit/.venv/bin:${PATH}"
 
+# Rubric judge: the codex CLI tarballs come from the npm registry, each checked against its
+# published sha512. Node is the digest-pinned node:22-slim copied above. At run time the
+# verifier reaches only the host codex bridge.
 RUN set -eux; \
-    npm install -g "@openai/codex@0.169.0"; \
+    dpkg_arch="$(dpkg --print-architecture)"; \
+    case "$dpkg_arch" in \
+      arm64) codex_arch="linux-arm64"; codex_arch_sha512="359fc36905297109b19aa79eed9f6e0b5af3c371a149ba286b071a4ded4b379624f969629d42867535c98029514fff6881010433d4d6c58cefc4f7e3e46ff116" ;; \
+      amd64) codex_arch="linux-x64"; codex_arch_sha512="a34e4dc803820f28123d1a35ca29f3c6f91149d9ac672043f44ee66e99a345a9d27ccf25ca9a96b50804a385df364c21b82476685bbc9a518eb101855d56d5c3" ;; \
+      *) echo "unsupported architecture: $dpkg_arch" >&2; exit 1 ;; \
+    esac; \
+    codex_main_sha512="2a1cd896428fc6836cb11f02126e39223aa71569fb52d945e02883ded3893de6b9d7106cecc687cb45101bd1926c2aa4e8bae39f941d243574403d7f1605a51b"; \
+    curl -fsSLo /tmp/codex.tgz "https://registry.npmjs.org/@openai/codex/-/codex-0.169.0.tgz"; \
+    curl -fsSLo /tmp/codex-arch.tgz "https://registry.npmjs.org/@openai/codex/-/codex-0.169.0-${codex_arch}.tgz"; \
+    echo "${codex_main_sha512}  /tmp/codex.tgz" | sha512sum -c -; \
+    echo "${codex_arch_sha512}  /tmp/codex-arch.tgz" | sha512sum -c -; \
+    npm install -g --omit=optional --no-audit --no-fund /tmp/codex.tgz; \
+    codex_root="$(npm root -g)/@openai/codex"; \
+    tar -xzf /tmp/codex-arch.tgz -C "$codex_root" --strip-components=1 package/vendor; \
+    rm -f /tmp/codex.tgz /tmp/codex-arch.tgz; \
     npm cache clean --force; \
     codex --version
 
-COPY . /tests
+COPY validate.py test.sh test_output.py test_weights.json judge.toml /tests/
+COPY data/ /tests/data/
+COPY reward/ /tests/reward/
 RUN chmod +x /tests/test.sh
 WORKDIR /
 ENV HOME=/home/verifier \

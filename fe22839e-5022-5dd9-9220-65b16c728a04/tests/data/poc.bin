@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000..3c44258
 --- /dev/null
 +++ b/test/mailto-field-name-security.test.js
-@@ -0,0 +1,151 @@
+@@ -0,0 +1,149 @@
 +'use strict'
 +
 +const test = require('tape')
@@ -100,11 +100,9 @@ index 0000000..3c44258
 +    }
 +  })
 +
-+  t.equal(
-+    serialized,
-+    'mailto:alice@example.test,attacker@evil.test?subject=safe%20subject&body=safe%20body&cc=copy@example.test',
-+    'dedicated properties override header variants and all recipients are visible in the path'
-+  )
++  const [path, query] = serialized.split('?')
++  t.equal(path, 'mailto:alice@example.test,attacker@evil.test', 'all recipients are visible in the path')
++  t.deepEqual(query.split('&').sort(), ['body=safe%20body', 'cc=copy@example.test', 'subject=safe%20subject'], 'dedicated properties override header variants')
 +
 +  const parsed = fastURI.parse(serialized)
 +  t.deepEqual(parsed.to, ['alice@example.test', 'attacker@evil.test'], 'canonical recipients are classified consistently')

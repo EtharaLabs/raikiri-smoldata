@@ -9,7 +9,7 @@ JUDGE = HERE / "validate.py"
 HARNESS_SRC = pathlib.Path("/opt/harness/src.tgz")
 POC_PATH = pathlib.Path("/output/poc.bin")
 
-HARNESS_SRC_SHA = "2cc0615427d994151ff520391f03412b114cbbf0326ab4de9e9f791e4ae968f6"
+HARNESS_SRC_SHA = "820c099a812adcb9184c5fc1682801ee058b6d6976524a2aab06750d3c7ea614"
 SCOPE_PREFIXES = ["config/", "tpl/"]
 EXTRACT_TIMEOUT = 120
 BUILD_TIMEOUT = 900
@@ -59,37 +59,66 @@ ZEhUVFBVUkwodSkgPT0gbmlsIHsKCQkJZm10LlByaW50bG4oIkFDQ0VQVEVEOiIsIHUpCgkJCW9z
 LkV4aXQoMSkKCQl9Cgl9CglmbXQuUHJpbnRsbigiYWxsIHJlZnVzZWQiKQp9Cg==
 """
 
-RESOLVED_POC_SHA256 = "e68a00e9fa421e85f63acaa2397c6250620f10dae68e830890d6ae42dd88dc9a"
+RESOLVED_POC_SHA256 = "7cc5dc8cb8853451f17a36cae8e96c9b1ef24c54e489260c793f26536e42d30a"
 RESOLVED_POC_B64 = """\
-cGFja2FnZSBtYWluCgovLyBIZWxkLW91dCBjYXNlOiBob3N0IE5BTUVTIHRoYXQgcmVzb2x2ZSB0
-byBpbnRlcm5hbCBhZGRyZXNzZXMuIFRoZSB0ZXh0dWFsCi8vIHBvbGljeSBjYW5ub3Qgc2VlIHRo
-ZW07IG9ubHkgYSBjaGVjayBvbiB3aGVyZSB0aGUgbmFtZSBwb2ludHMgY2FuLgovLyBFeGl0cyAx
-IGlmIHRoZSBkZWZhdWx0IHBvbGljeSBhY2NlcHRzIGFueSBpbnRlcm5hbC1yZXNvbHZpbmcgbmFt
-ZSwgYW5kCi8vIGV4aXRzIDAgd2l0aCBTS0lQIHdoZW4gdGhpcyBlbnZpcm9ubWVudCBvZmZlcnMg
-bm8gc3VjaCBuYW1lLgoKaW1wb3J0ICgKCSJjb250ZXh0IgoJImZtdCIKCSJuZXQiCgkibmV0L25l
-dGlwIgoJIm9zIgoJInRpbWUiCgoJImdpdGh1Yi5jb20vZ29odWdvaW8vaHVnby9jb25maWciCgki
-Z2l0aHViLmNvbS9nb2h1Z29pby9odWdvL2NvbmZpZy9zZWN1cml0eSIKKQoKZnVuYyBpbnRlcm5h
-bChuYW1lIHN0cmluZykgYm9vbCB7CgljdHgsIGNhbmNlbCA6PSBjb250ZXh0LldpdGhUaW1lb3V0
-KGNvbnRleHQuQmFja2dyb3VuZCgpLCAyKnRpbWUuU2Vjb25kKQoJZGVmZXIgY2FuY2VsKCkKCWFk
-ZHJzLCBlcnIgOj0gbmV0LkRlZmF1bHRSZXNvbHZlci5Mb29rdXBOZXRJUChjdHgsICJpcCIsIG5h
-bWUpCglpZiBlcnIgIT0gbmlsIHsKCQlyZXR1cm4gZmFsc2UKCX0KCWZvciBfLCBhIDo9IHJhbmdl
-IGFkZHJzIHsKCQlhID0gYS5Vbm1hcCgpCgkJaWYgYS5Jc0xvb3BiYWNrKCkgfHwgYS5Jc1ByaXZh
-dGUoKSB8fCBhLklzTGlua0xvY2FsVW5pY2FzdCgpIHx8IGEuSXNVbnNwZWNpZmllZCgpIHsKCQkJ
-cmV0dXJuIHRydWUKCQl9Cgl9CglyZXR1cm4gZmFsc2UKfQoKZnVuYyBtYWluKCkgewoJcGMsIGVy
-ciA6PSBzZWN1cml0eS5EZWNvZGVDb25maWcoY29uZmlnLk5ldygpKQoJaWYgZXJyICE9IG5pbCB7
-CgkJZm10LlByaW50bG4oIkVSUk9SOiIsIGVycikKCQlvcy5FeGl0KDIpCgl9CgluYW1lcyA6PSBb
-XXN0cmluZ3siaXA2LWxvb3BiYWNrIn0gLy8gOjoxIGluIHRoZSBjb250YWluZXIncyBob3N0cyBm
-aWxlCglpZiBoLCBlcnIgOj0gb3MuSG9zdG5hbWUoKTsgZXJyID09IG5pbCAmJiBoICE9ICIiIHsK
-CQluYW1lcyA9IGFwcGVuZChuYW1lcywgaCkgLy8gdGhlIGNvbnRhaW5lcidzIG93biwgcHJpdmF0
-ZSBhZGRyZXNzCgl9Cgl0ZXN0ZWQsIGFjY2VwdGVkIDo9IDAsIDAKCWZvciBfLCBuIDo9IHJhbmdl
-IG5hbWVzIHsKCQlpZiBfLCBlcnIgOj0gbmV0aXAuUGFyc2VBZGRyKG4pOyBlcnIgPT0gbmlsIHx8
-ICFpbnRlcm5hbChuKSB7CgkJCWNvbnRpbnVlCgkJfQoJCXRlc3RlZCsrCgkJdSA6PSAiaHR0cDov
-LyIgKyBuICsgIjo4MDgwL2FkbWluIgoJCWlmIHBjLkNoZWNrQWxsb3dlZEhUVFBVUkwodSkgPT0g
-bmlsIHsKCQkJZm10LlByaW50bG4oIkFDQ0VQVEVEOiIsIHUpCgkJCWFjY2VwdGVkKysKCQl9Cgl9
-CglpZiB0ZXN0ZWQgPT0gMCB7CgkJZm10LlByaW50bG4oIlNLSVA6IG5vIGludGVybmFsLXJlc29s
-dmluZyBob3N0IG5hbWUgaW4gdGhpcyBlbnZpcm9ubWVudCIpCgkJb3MuRXhpdCgwKQoJfQoJaWYg
-YWNjZXB0ZWQgPiAwIHsKCQlvcy5FeGl0KDEpCgl9CglmbXQuUHJpbnRsbigiQ0xFQU46IGV2ZXJ5
-IGludGVybmFsLXJlc29sdmluZyBob3N0IG5hbWUgZGVuaWVkIikKfQo=
+cGFja2FnZSBtYWluCgovLyBIZWxkLW91dCBjYXNlOiBob3N0IG5hbWVzIHRoYXQgcmVzb2x2ZSB0
+byBsb29wYmFjayBhZGRyZXNzZXMuIFRoZSB0ZXh0dWFsCi8vIHBvbGljeSBjYW5ub3Qgc2VlIHRo
+ZW07IG9ubHkgYSBjaGVjayBvbiB3aGVyZSB0aGUgbmFtZSBwb2ludHMgY2FuLiBBIGxvY2FsCi8v
+IG5hbWUgc2VydmVyIG9uIHRoZSBsb29wYmFjayBpbnRlcmZhY2UgYW5zd2VycyBmb3IgdGhlbSwg
+c28gdGhlIHByb2dyYW0KLy8gZGVwZW5kcyBvbiBubyBob3N0cyBmaWxlLCBob3N0IG5hbWUgb3Ig
+b3V0c2lkZSBuZXR3b3JrLiBFeGl0cyAxIGlmIHRoZQovLyBkZWZhdWx0IHBvbGljeSBhY2NlcHRz
+IGFueSBvZiB0aGVtLCBhbmQgZXhpdHMgMCB3aXRoIFNLSVAgd2hlbiB0aGUgbG9jYWwKLy8gbmFt
+ZSBzZXJ2ZXIgY2Fubm90IGJlIHJlYWNoZWQgdGhyb3VnaCB0aGUgZGVmYXVsdCByZXNvbHZlci4K
+CmltcG9ydCAoCgkiY29udGV4dCIKCSJlbmNvZGluZy9iaW5hcnkiCgkiZm10IgoJIm5ldCIKCSJv
+cyIKCSJzdHJpbmdzIgoJInRpbWUiCgoJImdpdGh1Yi5jb20vZ29odWdvaW8vaHVnby9jb25maWci
+CgkiZ2l0aHViLmNvbS9nb2h1Z29pby9odWdvL2NvbmZpZy9zZWN1cml0eSIKKQoKLy8gRWFjaCBu
+YW1lIGhhcyBlaXRoZXIgYW4gSVB2NCAoQSkgb3IgYW4gSVB2NiAoQUFBQSkgbG9vcGJhY2sgcmVj
+b3JkLgp2YXIgcmVjb3Jkc0EgPSBtYXBbc3RyaW5nXVtdYnl0ZXsKCSJsb29wYmFjayI6ICAgICB7
+MTI3LCAwLCAwLCAxfSwKCSJsb29wYmFjay1hbHQiOiB7MTI3LCAzLCAyLCAxfSwKfQoKdmFyIHJl
+Y29yZHNBQUFBID0gbWFwW3N0cmluZ11bXWJ5dGV7CgkibG9vcGJhY2s2IjogezAsIDAsIDAsIDAs
+IDAsIDAsIDAsIDAsIDAsIDAsIDAsIDAsIDAsIDAsIDAsIDF9LAp9CgpmdW5jIGFuc3dlcihxIFtd
+Ynl0ZSkgW11ieXRlIHsKCWlmIGxlbihxKSA8IDEyIHsKCQlyZXR1cm4gbmlsCgl9CglpLCBsYWJl
+bHMgOj0gMTIsIFtdc3RyaW5ne30KCWZvciBpIDwgbGVuKHEpICYmIHFbaV0gIT0gMCB7CgkJbiA6
+PSBpbnQocVtpXSkKCQlpZiBpKzErbiA+IGxlbihxKSB7CgkJCXJldHVybiBuaWwKCQl9CgkJbGFi
+ZWxzID0gYXBwZW5kKGxhYmVscywgc3RyaW5nKHFbaSsxOmkrMStuXSkpCgkJaSArPSAxICsgbgoJ
+fQoJaWYgaSs1ID4gbGVuKHEpIHx8IGxlbihsYWJlbHMpID09IDAgewoJCXJldHVybiBuaWwKCX0K
+CXFlbmQgOj0gaSArIDUKCXF0eXBlIDo9IGJpbmFyeS5CaWdFbmRpYW4uVWludDE2KHFbaSsxIDog
+aSszXSkKCWxhYmVsIDo9IHN0cmluZ3MuVG9Mb3dlcihsYWJlbHNbMF0pCglhLCBrbm93bkEgOj0g
+cmVjb3Jkc0FbbGFiZWxdCglhYWFhLCBrbm93bkFBQUEgOj0gcmVjb3Jkc0FBQUFbbGFiZWxdCgly
+IDo9IG1ha2UoW11ieXRlLCAxMiwgODApCgljb3B5KHJbMDoyXSwgcVswOjJdKQoJYmluYXJ5LkJp
+Z0VuZGlhbi5QdXRVaW50MTYoclsyOjRdLCAweDgxODApCgliaW5hcnkuQmlnRW5kaWFuLlB1dFVp
+bnQxNihyWzQ6Nl0sIDEpCglyID0gYXBwZW5kKHIsIHFbMTI6cWVuZF0uLi4pCglzd2l0Y2ggewoJ
+Y2FzZSBrbm93bkEgJiYgcXR5cGUgPT0gMToKCQliaW5hcnkuQmlnRW5kaWFuLlB1dFVpbnQxNihy
+WzY6OF0sIDEpCgkJciA9IGFwcGVuZChyLCAweGMwLCAweDBjLCAwLCAxLCAwLCAxLCAwLCAwLCAw
+LCA2MCwgMCwgNCkKCQlyID0gYXBwZW5kKHIsIGEuLi4pCgljYXNlIGtub3duQUFBQSAmJiBxdHlw
+ZSA9PSAyODoKCQliaW5hcnkuQmlnRW5kaWFuLlB1dFVpbnQxNihyWzY6OF0sIDEpCgkJciA9IGFw
+cGVuZChyLCAweGMwLCAweDBjLCAwLCAyOCwgMCwgMSwgMCwgMCwgMCwgNjAsIDAsIDE2KQoJCXIg
+PSBhcHBlbmQociwgYWFhYS4uLikKCWNhc2UgIWtub3duQSAmJiAha25vd25BQUFBOgoJCXJbM10g
+fD0gMwoJfQoJcmV0dXJuIHIKfQoKZnVuYyBzZXJ2ZShwYyBuZXQuUGFja2V0Q29ubikgewoJYnVm
+IDo9IG1ha2UoW11ieXRlLCAxNTAwKQoJZm9yIHsKCQluLCBmcm9tLCBlcnIgOj0gcGMuUmVhZEZy
+b20oYnVmKQoJCWlmIGVyciAhPSBuaWwgewoJCQlyZXR1cm4KCQl9CgkJaWYgciA6PSBhbnN3ZXIo
+YnVmWzpuXSk7IHIgIT0gbmlsIHsKCQkJcGMuV3JpdGVUbyhyLCBmcm9tKQoJCX0KCX0KfQoKZnVu
+YyBtYWluKCkgewoJcGMsIGVyciA6PSBuZXQuTGlzdGVuUGFja2V0KCJ1ZHAiLCAiMTI3LjAuMC4x
+OjAiKQoJaWYgZXJyICE9IG5pbCB7CgkJZm10LlByaW50bG4oIlNLSVA6IG5vIGxvb3BiYWNrIG5h
+bWUgc2VydmVyOiIsIGVycikKCQlvcy5FeGl0KDApCgl9CglnbyBzZXJ2ZShwYykKCXNlcnZlciA6
+PSBwYy5Mb2NhbEFkZHIoKS5TdHJpbmcoKQoJbmV0LkRlZmF1bHRSZXNvbHZlci5QcmVmZXJHbyA9
+IHRydWUKCW5ldC5EZWZhdWx0UmVzb2x2ZXIuRGlhbCA9IGZ1bmMoY3R4IGNvbnRleHQuQ29udGV4
+dCwgbmV0d29yaywgYWRkcmVzcyBzdHJpbmcpIChuZXQuQ29ubiwgZXJyb3IpIHsKCQl2YXIgZCBu
+ZXQuRGlhbGVyCgkJcmV0dXJuIGQuRGlhbENvbnRleHQoY3R4LCAidWRwIiwgc2VydmVyKQoJfQoJ
+bmFtZXMgOj0gW11zdHJpbmd7Imxvb3BiYWNrLmV4YW1wbGUudGVzdCIsICJsb29wYmFjay1hbHQu
+ZXhhbXBsZS50ZXN0IiwgImxvb3BiYWNrNi5leGFtcGxlLnRlc3QifQoJY3R4LCBjYW5jZWwgOj0g
+Y29udGV4dC5XaXRoVGltZW91dChjb250ZXh0LkJhY2tncm91bmQoKSwgNSp0aW1lLlNlY29uZCkK
+CWRlZmVyIGNhbmNlbCgpCglmb3IgXywgbiA6PSByYW5nZSBuYW1lcyB7CgkJaWYgXywgZXJyIDo9
+IG5ldC5EZWZhdWx0UmVzb2x2ZXIuTG9va3VwTmV0SVAoY3R4LCAiaXAiLCBuKTsgZXJyICE9IG5p
+bCB7CgkJCWZtdC5QcmludGxuKCJTS0lQOiBsb2NhbCBuYW1lIHNlcnZlciBkaWQgbm90IGFuc3dl
+ciBmb3IiLCBuLCBlcnIpCgkJCW9zLkV4aXQoMCkKCQl9Cgl9CglwY2ZnLCBlcnIgOj0gc2VjdXJp
+dHkuRGVjb2RlQ29uZmlnKGNvbmZpZy5OZXcoKSkKCWlmIGVyciAhPSBuaWwgewoJCWZtdC5Qcmlu
+dGxuKCJFUlJPUjoiLCBlcnIpCgkJb3MuRXhpdCgyKQoJfQoJYWNjZXB0ZWQgOj0gMAoJZm9yIF8s
+IG4gOj0gcmFuZ2UgbmFtZXMgewoJCXUgOj0gImh0dHA6Ly8iICsgbiArICI6ODA4MC9hZG1pbiIK
+CQlpZiBwY2ZnLkNoZWNrQWxsb3dlZEhUVFBVUkwodSkgPT0gbmlsIHsKCQkJZm10LlByaW50bG4o
+IkFDQ0VQVEVEOiIsIHUpCgkJCWFjY2VwdGVkKysKCQl9Cgl9CglpZiBhY2NlcHRlZCA+IDAgewoJ
+CW9zLkV4aXQoMSkKCX0KCWZtdC5QcmludGxuKCJDTEVBTjogZXZlcnkgbG9vcGJhY2stcmVzb2x2
+aW5nIGhvc3QgbmFtZSBkZW5pZWQiKQp9Cg==
 """
 NAMES_POC_SHA256 = "8d92b432b99b9873f345acda8c56072ab1b5c710907f6618b94d18a5d2968f5d"
 NAMES_POC_B64 = """\
@@ -311,6 +340,10 @@ GO_PATH_DIR = os.environ.get("KAKASHI_GOPATH", "/go")
 GO_MOD_CACHE = os.environ.get("KAKASHI_GOMODCACHE", "/go/pkg/mod")
 
 
+# One build cache for the whole session, so each verdict after the first builds warm.
+_GOCACHE = tempfile.mkdtemp(prefix="gocache-")
+
+
 def _go_env():
     """Offline Go env with an explicit toolchain path.
 
@@ -331,7 +364,7 @@ def _go_env():
     # the build cache somewhere the grader can actually write.
     env["GOPATH"] = GO_PATH_DIR
     env["GOMODCACHE"] = GO_MOD_CACHE
-    env["GOCACHE"] = tempfile.mkdtemp(prefix="gocache-")
+    env["GOCACHE"] = _GOCACHE
     env["GOTMPDIR"] = tempfile.mkdtemp(prefix="gotmp-")
     return env
 
@@ -369,20 +402,41 @@ def _install(tree):
                (result.stderr or result.stdout or "").strip()[-400:]))
     return tree
 
+# The success line each grader-owned program prints last when every input passed.
+_MARKERS = {GT_POC_PATH: "CLEAN: every loopback encoding denied"}
+
+
 def _verdict(src_dir, poc):
-    # The judge compiles and runs the reproducer against `src_dir`, so it needs
-    # the same offline Go environment the build used. Without it the judge
-    # cannot build either tree and reports the failure as a crash, which makes
-    # a patched tree look unrepaired.
-    proc = subprocess.run(
-        [sys.executable, str(JUDGE), "--target", str(src_dir), "--input", str(poc)],
-        capture_output=True, text=True, timeout=JUDGE_TIMEOUT, env=_go_env())
+    """Build and run `poc` against a fresh copy of `src_dir`; return the judge's result.
+
+    The program runs as the grader uid with write access to the tree it runs in, so
+    each verdict gets its own copy and a program cannot change the tree that later
+    verdicts build. The copy keeps a fixed path per source tree, so the shared build
+    cache still hits. For a grader-owned program "clean" also requires its success
+    line, since an exit 0 without it means the program stopped before checking.
+    """
+    work = pathlib.Path(_VERDICT_ROOT) / ("tree-" + hashlib.sha256(str(src_dir).encode()).hexdigest()[:12])
+    shutil.rmtree(work, ignore_errors=True)
+    shutil.copytree(src_dir, work, symlinks=True)
+    try:
+        # The judge compiles and runs the reproducer against the copy, so it needs
+        # the same offline Go environment the build used.
+        proc = subprocess.run(
+            [sys.executable, str(JUDGE), "--target", str(work), "--input", str(poc)],
+            capture_output=True, text=True, timeout=JUDGE_TIMEOUT, env=_go_env())
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
     if not proc.stdout.strip():
         raise InstallFailure(
             "judge produced no verdict for %s (rc=%d): %s"
             % (src_dir, proc.returncode,
                (proc.stderr or "").strip()[-400:]))
-    return json.loads(proc.stdout)
+    result = json.loads(proc.stdout)
+    marker = _MARKERS.get(pathlib.Path(poc))
+    if marker and result.get("verdict") == "clean" and marker not in result.get("output_tail", ""):
+        result["verdict"] = "error"
+        result["detail"] = "exit 0 without the program's success line"
+    return result
 
 def _embedded_program(b64, sha256, name):
     """Materialise a held-out Go program at grade time, digest-checked."""
@@ -390,6 +444,7 @@ def _embedded_program(b64, sha256, name):
     assert hashlib.sha256(raw).hexdigest() == sha256, "%s digest mismatch" % name
     path = pathlib.Path(tempfile.mkdtemp()) / ("%s.go" % name)
     path.write_bytes(raw)
+    _MARKERS[path] = [ln for ln in raw.decode().splitlines() if "fmt.Println(\"" in ln][-1].split('"')[1]
     return path
 
 def _variant_poc():
@@ -467,6 +522,7 @@ def _require_repair(tree):
 
 
 _VULN_VERDICT = {}
+_VERDICT_ROOT = tempfile.mkdtemp(prefix="verdict-")
 
 
 def _agent_poc_vuln_verdict(vuln_src):
@@ -529,9 +585,11 @@ def test_patched_variant_poc_neutralized(vuln_src, patched_src):
     assert _verdict(patched_src, _variant_poc())["verdict"] == "clean", "variant poc still crashes"
 
 def test_patched_octal_variant_poc_neutralized(vuln_src, patched_src):
-    """Octal and short-dotted inet_aton encodings of internal hosts, which the first numeric
-    variant omits. A repair that normalises only hex and decimal forms still lets these through.
-    The vulnerable tree must accept them first, so the check is meaningful here."""
+    """Octal and short inet_aton encodings of internal hosts, which the first numeric variant
+    omits. The existing digits-then-dot rule already refuses the forms that start with a decimal
+    or octal part; the octal single-number form and the hex-led short form reach the defect, and
+    a repair that decodes only hex and decimal still lets the octal one through. The vulnerable
+    tree must accept at least one of them first, so the check is meaningful here."""
     prog = _variant2_poc()
     assert _verdict(vuln_src, prog)["verdict"] == "crash", (
         "the vulnerable tree did not accept an octal or short internal encoding")

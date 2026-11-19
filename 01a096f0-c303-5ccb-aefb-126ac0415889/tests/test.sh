@@ -6,12 +6,11 @@
 # per-trial directory (mounted).
 #
 #   1. trajectory  rebuild {steps, final_message} from the agent log
-#   2. preflight   validate.py preflight on the agent's poc
-#   3. pytest      the author's checks under pytest (reporting only: junit.xml)
-#   4. reward      Rewardkit over /tests/reward: pytest/ledger.py and rubric/judge.toml,
-#                  combined by reward/reward.toml -> reward.json {pytest, rubric, reward}
-#                  + reward-details.json (per test and per criterion, with the judge's reasoning)
-#   5. record      judge.json (what judged, or why nothing did) and reward_producer.json
+#   2. pytest      the author's checks under pytest (junit.xml -> ctrf.json)
+#   3. reward      Rewardkit over /tests/reward: pytest/ledger.py as root, then
+#                  rubric/judge.toml as the judge uid; combined with reward/reward.toml
+#                  weights -> reward.json {pytest, rubric, reward} + reward-details.json
+#   4. record      judge.json (what judged, or why nothing did) and reward_producer.json
 #
 # [verifier.env]: JUDGE_MODEL (default openai/gpt-6.1-sol), JUDGE_TRANSPORT (codex),
 # CODEX_BRIDGE_URL and KAKASHI_CODEX_BRIDGE_SECRET (the host codex bridge and its stub
@@ -29,8 +28,6 @@ fail_closed() {
 }
 trap fail_closed EXIT
 
-export ASAN_OPTIONS="detect_leaks=0:exitcode=86:symbolize=1:halt_on_error=1:abort_on_error=0"
-export UBSAN_OPTIONS="print_stacktrace=1"
 unset LD_PRELOAD LD_LIBRARY_PATH LD_AUDIT DYLD_INSERT_LIBRARIES PYTHONPATH PYTHONHOME PYTHONSTARTUP
 unset TARGET_SRC TARGET_OUT TARGET_BIN TARGET_DRIVER SRC_TGZ VALIDATE_PY ORACLE_DATA_DIR
 
@@ -192,14 +189,14 @@ for line in lines:
 
 steps.extend(pending.values())
 traj_file.write_text(json.dumps({"steps": steps, "final_message": final_message}, indent=2))
-print(f"[1/5 trajectory] {len(steps)} steps from {log.name if log else 'NO AGENT LOG'} -> {traj_file}")
+print(f"[1/4 trajectory] {len(steps)} steps from {log.name if log else 'NO AGENT LOG'} -> {traj_file}")
 PYEOF
 
 [ -f "$TRAJ" ] && cp "$TRAJ" "$LOGDIR/agent_trajectory.json"
 
-# ------------------------------------------------- grader sandbox (steps 2 and 3)
-# Steps 2-3 build and execute agent-controlled code (fix.patch) and input
-# (poc.bin, a memory-corruption reproducer). Run them as a dedicated
+# ------------------------------------------------- grader sandbox (step 2)
+# Step 2 builds and executes agent-controlled code (fix.patch) and input
+# (poc.bin, the agent's proof-of-concept program). Run it as a dedicated
 # unprivileged uid with no capabilities, no_new_privs and an allowlisted
 # environment: no judge credentials, no write access to /tests, /logs or the
 # reward files, and no access to root's /proc/<pid>/environ. The Python
@@ -227,18 +224,27 @@ OPT_MODE="$(stat -c %a /opt)"
 chmod 1777 /opt   # the build recreates its working dirs under /opt (if any)
 grader() {
     env -i PATH="$PATH" HOME="$GRADER_DIR/home" TMPDIR="$GRADER_DIR" LC_ALL=C \
-        ASAN_OPTIONS="$ASAN_OPTIONS" UBSAN_OPTIONS="$UBSAN_OPTIONS" \
         PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/tests TESTS_DIR=/tests \
         VERIFIER_LOGS="$GRADER_DIR/logs" \
         setpriv --reuid="$GRADER_UID" --regid="$GRADER_UID" --clear-groups \
             --no-new-privs -- "$@"
 }
-grader_reap() {
+# PIDs whose real uid is $1, read from /proc/*/status (the grader runs non-dumpable,
+# so /proc/<pid> itself is root-owned).
+uid_pids() {
+    awk -v u="$1" '/^Uid:/ { if ($2 == u) { split(FILENAME, f, "/"); print f[3] }; nextfile }' \
+        /proc/[0-9]*/status 2>/dev/null
+}
+reap_uid() {
+    local pids
     for _ in 1 2 3 4 5; do
-        pkill -KILL -u "$GRADER_UID" 2>/dev/null || break
-        sleep 1
+        pids="$(uid_pids "$1")"; [ -z "$pids" ] && return 0
+        kill -KILL $pids 2>/dev/null || true; sleep 1
     done
-    if pgrep -u "$GRADER_UID" >/dev/null 2>&1; then
+    [ -z "$(uid_pids "$1")" ]
+}
+grader_reap() {
+    if ! reap_uid "$GRADER_UID"; then
         echo "ERROR: grader processes survived; refusing to trust their results" >&2
         exit 1
     fi
@@ -249,14 +255,7 @@ ctypes.CDLL(None).prctl(4, 0, 0, 0, 0)  # PR_SET_DUMPABLE = 0
 sys.argv = sys.argv[1:]
 runpy.run_module(sys.argv[0], run_name="__main__", alter_sys=True)'
 
-# ---------------------------------------------------------------- 2. preflight
-grader python3 -c "import ctypes, runpy, sys
-ctypes.CDLL(None).prctl(4, 0, 0, 0, 0)
-sys.argv = ['validate.py'] + sys.argv[1:]
-runpy.run_path('/tests/validate.py', run_name='__main__')" \
-    --target /out/vulnerable --input /output/poc.bin > "$RESULTS/preflight.json" 2>&1 || true
-
-# ---------------------------------------------------------------- 3. pytest (reporting only)
+# ---------------------------------------------------------------- 2. pytest
 if grader python3 -c "$GRADER_PY" pytest /tests/test_output.py \
         --junitxml=/proc/self/fd/3 -v -p no:cacheprovider \
         -W ignore::pytest.PytestReturnNotNoneWarning \
@@ -281,15 +280,15 @@ if [ "$(cd /output && find . -type f -exec sha256sum {} + | sort)" != "$OUT_SUM"
     printf '{\n  "pytest": 0.0,\n  "reward": 0.0\n}\n' > "$LOGDIR/reward.json"
     exit 0
 fi
-for f in preflight.json junit.xml pytest-stdout.txt; do
+for f in junit.xml pytest-stdout.txt; do
     cp "$RESULTS/$f" "$LOGDIR/$f"
 done
 rm -rf "$GRADER_DIR" "$RESULTS"
 export TESTS_DIR=/tests VERIFIER_LOGS="$LOGDIR"
 if [ "$PYTEST_OK" = 1 ]; then
-    echo "[2/5 pytest] every check passed"
+    echo "[2/4 pytest] every check passed"
 else
-    echo "[2/5 pytest] some checks failed (reporting only; the ledger scores them)"
+    echo "[2/4 pytest] some checks failed (reporting only; the ledger scores them)"
 fi
 tail -n 15 "$LOGDIR/pytest-stdout.txt"
 
@@ -389,7 +388,7 @@ then
     exit 1
 fi
 
-# ---------------------------------------------------------------- 4. reward
+# ---------------------------------------------------------------- 3. reward
 JUDGE_TRANSPORT="${JUDGE_TRANSPORT:-codex}"
 SKIP_REASON=""
 
@@ -433,44 +432,78 @@ PYEOF
 cp "$JW/final_message.md" "$LOGDIR/final_message.md"
 mkdir -p "$JW/workspace" && cp -a /output/. "$JW/workspace/" 2>/dev/null || true
 
-export REWARDKIT_LOG_DIR="$LOGDIR"
 RK_OUT="$LOGDIR/rewardkit-stdout.txt"; : > "$RK_OUT"
 JUDGE_RAN=0; JUDGE_ERROR=""
+# The pytest channel is scored here, as root, from the ctrf.json written above.
+echo "[3/4 reward] rewardkit: pytest ledger"
+if ! REWARDKIT_LOG_DIR="$LOGDIR" rewardkit "$RK/pytest" --workspace /output --output "$LOGDIR/reward.json" >> "$RK_OUT" 2>&1 \
+        || [ ! -s "$LOGDIR/reward.json" ]; then
+    echo "ERROR: the pytest ledger failed; scored 0." >&2
+    tail -n 20 "$RK_OUT" >&2
+    # A ledger that exits non-zero may have scored only part of the tests.
+    rm -f "$LOGDIR/reward.json"
+    exit 1
+fi
+PYTEST_SCORE="$(python3 -c 'import json,math,sys
+d=json.load(open(sys.argv[1])); r=d.get("reward", d.get("score"))
+print(r if isinstance(r,(int,float)) and math.isfinite(r) else 0.0)' "$LOGDIR/reward.json")"
+rm -f "$LOGDIR/reward.json" "$LOGDIR/reward-details.json"
+
+# The judge runs codex with full access over agent-written text, so it runs as its own
+# unprivileged uid that can write only its private run directory and the judge workspace.
+# Its result supplies the rubric value alone; the pytest value above cannot be changed by it.
+JUDGE_UID=64002
+JRUN=/tmp/kakashi-judge
+RUBRIC_SCORE=""
 if [ -z "$SKIP_REASON" ]; then
-    echo "[3/5 reward] rewardkit: pytest ledger + rubric, judged by $JUDGE_TRANSPORT / $JUDGE_MODEL"
+    echo "[3/4 reward] rewardkit: rubric, judged by $JUDGE_TRANSPORT / $JUDGE_MODEL"
     write_codex_bridge_config
+    rm -rf "$JRUN" && mkdir -p "$JRUN/rk" "$JRUN/home" "$JRUN/tmp" "$JRUN/out" "$JRUN/logs"
+    cp -a "$RK/rubric" "$JRUN/rk/rubric"
+    chown -R "$JUDGE_UID:$JUDGE_UID" "$JRUN" "$JW"
+    chmod 700 "$JRUN"
     # Rewardkit hands OPENAI_API_KEY to codex as CODEX_API_KEY; here it is the bridge's stub.
-    if OPENAI_API_KEY="$KAKASHI_CODEX_BRIDGE_SECRET" REWARDKIT_JUDGE="$JUDGE_TRANSPORT" REWARDKIT_MODEL="$JUDGE_MODEL" \
-            rewardkit --yolo --max-concurrent-agent 1 "$RK" --workspace "$JW" --output "$LOGDIR/reward.json" >> "$RK_OUT" 2>&1 \
-            && [ -s "$LOGDIR/reward.json" ]; then
+    if env -i PATH="$PATH" HOME="$JRUN/home" TMPDIR="$JRUN/tmp" LC_ALL=C.UTF-8 \
+            OPENAI_API_KEY="$KAKASHI_CODEX_BRIDGE_SECRET" REWARDKIT_JUDGE="$JUDGE_TRANSPORT" \
+            REWARDKIT_MODEL="$JUDGE_MODEL" REWARDKIT_LOG_DIR="$JRUN/logs" \
+            LITELLM_LOCAL_MODEL_COST_MAP=True \
+            setpriv --reuid="$JUDGE_UID" --regid="$JUDGE_UID" --clear-groups --no-new-privs -- \
+            "$(command -v rewardkit)" --yolo --max-concurrent-agent 1 "$JRUN/rk" \
+            --workspace "$JW" --output "$JRUN/out/reward.json" >> "$RK_OUT" 2>&1; then
+        RUBRIC_SCORE="$(python3 -c 'import json,math,sys
+d=json.load(open(sys.argv[1])); r=d.get("rubric")
+print(r if isinstance(r,(int,float)) and math.isfinite(r) else "")' "$JRUN/out/reward.json" 2>/dev/null || true)"
+    fi
+    reap_uid "$JUDGE_UID" || true
+    if [ -n "$RUBRIC_SCORE" ]; then
         JUDGE_RAN=1
+        cp "$JRUN/out/reward-details.json" "$LOGDIR/reward-details.json" 2>/dev/null || true
+        for f in "$JRUN"/logs/trajectory.*; do [ -f "$f" ] && cp "$f" "$LOGDIR/"; done
     else
         JUDGE_ERROR="rewardkit failed with the judge: $(grep -E 'rror' "$RK_OUT" | tail -n 1 | sed 's/^[ |]*//' | cut -c1-400)"
         echo "ERROR: $JUDGE_ERROR (full output: rewardkit-stdout.txt)" >&2
-        rm -f "$LOGDIR/reward.json" "$LOGDIR/reward-details.json"
     fi
+    rm -rf "$JRUN"
+    chown -R root:root "$JW" 2>/dev/null || true
 else
-    echo "[3/5 reward] rubric channel UNSCORED: $SKIP_REASON"
+    echo "[3/4 reward] rubric channel UNSCORED: $SKIP_REASON"
 fi
-if [ "$JUDGE_RAN" = 0 ]; then
-    echo "[3/5 reward] rewardkit: pytest ledger alone (reward = pytest)"
-    if ! rewardkit "$RK/pytest" --workspace /output --output "$LOGDIR/reward.json" >> "$RK_OUT" 2>&1 \
-            || [ ! -s "$LOGDIR/reward.json" ]; then
-        echo "ERROR: the pytest ledger failed; no reward written." >&2
-        tail -n 20 "$RK_OUT" >&2
-        exit 1
-    fi
-    python3 - "$LOGDIR/reward.json" <<'PYEOF'
-import json, pathlib, sys
-p = pathlib.Path(sys.argv[1]); d = json.loads(p.read_text()); r = d.get("reward")
-if isinstance(r, (int, float)):
-    p.write_text(json.dumps({"pytest": r, "reward": r}, indent=2))
+# reward.json: the pytest channel, the rubric channel when judged, and their
+# reward.toml weighted mean; with no rubric, reward = pytest
+python3 - "$LOGDIR/reward.json" "$PYTEST_SCORE" "$RUBRIC_SCORE" "$RK/reward.toml" <<'PYEOF'
+import json, pathlib, sys, tomllib
+p = pathlib.Path(sys.argv[1]); pytest = float(sys.argv[2])
+reward = {"pytest": pytest, "reward": pytest}
+if sys.argv[3]:
+    w = tomllib.loads(pathlib.Path(sys.argv[4]).read_text())["reward"][0]["weights"]
+    reward["rubric"] = float(sys.argv[3])
+    reward["reward"] = round((w["pytest"] * pytest + w["rubric"] * reward["rubric"]) / (w["pytest"] + w["rubric"]), 4)
+p.write_text(json.dumps(reward, indent=2))
 PYEOF
-    printf '%s\n' "${JUDGE_ERROR:-$SKIP_REASON}" > "$LOGDIR/rubric_judge_failed.txt"
-fi
+[ "$JUDGE_RAN" = 0 ] && printf '%s\n' "${JUDGE_ERROR:-$SKIP_REASON}" > "$LOGDIR/rubric_judge_failed.txt"
 tail -n 6 "$RK_OUT"
 
-# ---------------------------------------------------------------- 5. record
+# ---------------------------------------------------------------- 4. record
 JUDGE_RAN="$JUDGE_RAN" SKIP_REASON="$SKIP_REASON" JUDGE_ERROR="$JUDGE_ERROR" \
 JUDGE_TRANSPORT="$JUDGE_TRANSPORT" RK="$RK" python3 - <<'PYEOF'
 import importlib.metadata as md, json, os, pathlib, subprocess, tomllib
@@ -535,6 +568,6 @@ judge = {"ran": ran, "transport": transport if ran else None,
 (L / "reward_producer.json").write_text(json.dumps({
     "producer": "rewardkit", "channels": sorted(k for k in reward if k not in ("reward", "rubric_unclamped")),
     "weights": policy if ran else {"pytest": 1.0}}, indent=2))
-print("[5/5 record] judge:", "ran" if ran else f"not run ({reason})")
-print("[5/5 record] reward.json:", json.dumps(reward))
+print("[4/4 record] judge:", "ran" if ran else f"not run ({reason})")
+print("[4/4 record] reward.json:", json.dumps(reward))
 PYEOF
