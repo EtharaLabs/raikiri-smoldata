@@ -1,0 +1,2 @@
+# Store every file byte for byte: no line-ending conversion (embedded payloads are sha256-checked).
+* -text

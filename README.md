@@ -31,7 +31,7 @@ All five tasks use Harbor task schema 1.4 on linux/amd64 and linux/arm64. Each g
 
 ## Scoring
 
-In every task, `tests/test.sh` runs in a separate verifier container. Half of the reward comes from a deterministic pytest ledger that applies the agent's deliverables to the tree and runs held-out probes. The other half comes from an LLM-judged rubric over the agent's diff: `openai/gpt-6.1-sol` through a codex bridge. The reward is `0.5 * pytest + 0.5 * rubric`. Without the bridge, or without an agent trajectory, the rubric is recorded as unscored and the reward equals the pytest score.
+In every task, `tests/test.sh` runs in a separate verifier container. Half of the reward comes from a deterministic pytest ledger that applies the agent's deliverables to the tree and runs held-out probes. The other half comes from an LLM-judged rubric over the agent's diff: `openai/gpt-6.1-sol` through a codex bridge. The reward is `0.5 * pytest + 0.5 * rubric`. The verifier leaves the rubric unscored when `CODEX_BRIDGE_URL` or `KAKASHI_CODEX_BRIDGE_SECRET` is empty, when the bridge's `/healthz` check fails, when the agent trajectory has no steps (as with `-a oracle` and `-a nop`), when `JUDGE_SKIP=1` or `JUDGE_TRANSPORT` is not `codex`, or when the judge run fails. An unscored rubric leaves no `rubric` key in `reward.json`, writes the reason to `/logs/verifier/rubric_judge_failed.txt`, and sets the reward to the pytest score.
 
 ## Running a task
 
@@ -42,7 +42,7 @@ harbor run -p <task-dir> -a oracle    # reference solution, reward 1.0
 harbor run -p <task-dir> -a nop       # no-agent baseline, reward 0.0
 ```
 
-The rubric half calls the codex bridge at `CODEX_BRIDGE_URL` with its key in `KAKASHI_CODEX_BRIDGE_SECRET` (`judge_dependency` in each `task.toml`). Several verifiers embed payloads whose sha256 covers their exact bytes, so check out with line-ending conversion off (`git config core.autocrlf false`); a converted checkout fails to build.
+The rubric half calls the codex bridge at `CODEX_BRIDGE_URL` with its key in `KAKASHI_CODEX_BRIDGE_SECRET` (`judge_dependency` in each `task.toml`). `.gitattributes` turns off line-ending conversion for every file. Several verifiers embed payloads whose sha256 covers their exact bytes, so a converted checkout would fail to build.
 
 ## Cite
 
