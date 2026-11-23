@@ -100,14 +100,6 @@ def _atif(doc):
             out.append(entry)
             if cid:
                 by_id[cid] = entry
-            # OpenHands ends a run with a `finish` tool call whose `message` argument IS the
-            # agent's final report; an agent that writes no closing text puts it only there.
-            if entry["tool"] == "finish":
-                fargs = entry["arguments"]
-                fargs = _parse_json(fargs) if isinstance(fargs, str) else fargs
-                fmsg = fargs.get("message") if isinstance(fargs, dict) else None
-                if isinstance(fmsg, str) and fmsg.strip():
-                    final = fmsg
         results = (st.get("observation") or {}).get("results") or []
         for r in results:
             target = by_id.get(r.get("source_call_id"))
@@ -161,26 +153,6 @@ for line in lines:
             tid = block.get("tool_use_id", "")
             if tid in pending:
                 pending[tid]["response"] = _parse_json(_text_of(block.get("content")))
-                steps.append(pending.pop(tid))
-    elif etype == "message" and msg.get("role"):
-        role = msg.get("role")
-        if role == "assistant":
-            for tc in msg.get("tool_calls") or []:
-                fn = tc.get("function") or {}
-                args = fn.get("arguments")
-                if isinstance(args, str):
-                    args = _parse_json(args)
-                pending[tc.get("id", "")] = {"tool": fn.get("name", ""),
-                                             "arguments": args if isinstance(args, dict) else {}, "response": None}
-                if fn.get("name") == "finish" and isinstance(args, dict) \
-                        and isinstance(args.get("message"), str) and args["message"].strip():
-                    final_message = args["message"]
-            if isinstance(msg.get("content"), str) and msg["content"].strip() and not msg.get("tool_calls"):
-                final_message = msg["content"]
-        elif role == "tool":
-            tid = msg.get("tool_call_id", "")
-            if tid in pending:
-                pending[tid]["response"] = _parse_json(msg.get("content"))
                 steps.append(pending.pop(tid))
     elif etype == "result":
         r = ev.get("result", "")

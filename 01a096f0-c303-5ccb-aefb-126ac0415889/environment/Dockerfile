@@ -47,33 +47,27 @@ COPY config/config.toml /opt/harness/config.toml
 RUN chmod +x /opt/harness/scripts/* \
  && mkdir -p /output /logs/verifier /root/workspace
 # ---------------------------------------------------------------------------
-# Prebaked OpenHands-SDK agent runtime.
+# Prebaked Claude Code agent runtime.
 #
-# Harbor's openhands-sdk agent begins setup with:
-#   [ -f /opt/openhands-sdk-venv/bin/python ] && \
-#     /opt/openhands-sdk-venv/bin/python -c "import openhands.sdk"
-# and skips its network install (uv python install + uv pip install
-# openhands-sdk ...) when that succeeds. Baking the venv here means the agent
-# phase performs no public-network package fetch: the only runtime egress left
-# is the model endpoint itself (LLM_BASE_URL), admitted via --allow-agent-host.
-# curl is already present (apt layer above) so the agent's system-dependency
-# check (curl, coreutils) is an offline no-op; coreutils ships in the base.
-# The venv is root-owned; the agent runs as root ([agent] user = "root").
-# Versions are pinned (openhands-sdk/tools 1.58.1, the version the KAKASHI
-# trajectories ran on; Python 3.12.15) and the uv cache is removed in this layer.
+# Harbor's claude-code agent runs `claude --version` first and skips its network
+# install (bootstrap.sh from downloads.claude.ai) when the version matches the
+# one requested with --ak version=2.1.326, so the agent phase fetches no package;
+# its only egress is the model endpoint admitted by --allow-agent-host.
+# The binary is the glibc build from the 2.1.326 release manifest, checked against
+# that manifest's sha256 for the build platform. The arch is read at run time, not
+# from TARGETARCH, so BuildKit and Kaniko build the same way.
 # ---------------------------------------------------------------------------
-ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
-# uv comes from its digest-pinned image; locks/openhands-sdk.txt pins every package by sha256.
-COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /uvx /usr/local/bin/
-COPY locks/openhands-sdk.txt /tmp/openhands-sdk.txt
+ENV DISABLE_AUTOUPDATER=1
 RUN set -eux; \
-    uv python install 3.12.15; \
-    uv venv /opt/openhands-sdk-venv --python 3.12.15; \
-    uv pip install --no-cache --require-hashes --python /opt/openhands-sdk-venv/bin/python \
-        -r /tmp/openhands-sdk.txt; \
-    chmod -R a+rX /opt/uv /opt/openhands-sdk-venv; \
-    /opt/openhands-sdk-venv/bin/python -c "import openhands.sdk; assert openhands.sdk.__version__ == '1.58.1', openhands.sdk.__version__; print('openhands.sdk', openhands.sdk.__version__)"; \
-    rm -rf /root/.cache/uv /tmp/uv-*.lock /tmp/openhands-sdk.txt
+    case "$(dpkg --print-architecture)" in \
+      amd64) cc_platform=linux-x64;   cc_sha=b6b3647d981130dc44fc670846ae97b6cde531ffb667cf9c4d17cfcafb38cb37 ;; \
+      arm64) cc_platform=linux-arm64; cc_sha=98d56f6ffe53469767a74864a38eaf359d62ef557a8de1b1ad524d61a66ec119 ;; \
+      *) echo "unsupported architecture" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL -o /usr/local/bin/claude "https://downloads.claude.ai/claude-code-releases/2.1.326/${cc_platform}/claude"; \
+    echo "${cc_sha}  /usr/local/bin/claude" | sha256sum -c --quiet -; \
+    chmod 0755 /usr/local/bin/claude; \
+    claude --version | grep -q '^2\.1\.326 '
 
 WORKDIR /root/workspace
 USER 0

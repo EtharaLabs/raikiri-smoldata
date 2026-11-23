@@ -1,0 +1,288 @@
+# Judged rubric criteria for bundle 9817daf5-6a35-512f-a0fc-d1fb71fdb182.
+# Harbor Reward Kit judge-TOML: one [[criterion]] table per criterion.
+# weight = source_weight / 38, the total positive source weight, so the RewardKit
+# weighted-sum is the rubric channel: (satisfied positive source weights - satisfied
+# penalty source weights) / 38. test.sh floors a negative value at 0.
+# Every criterion is state_change, judged from the delivered fix.patch.
+
+[judge]
+judge = "openai/gpt-6.1-sol"
+prompt_template = "prompt.md"
+mode = "individual"
+timeout = 300
+weight = 1.0
+
+[scoring]
+aggregation = "weighted-sum"
+
+[[criterion]]
+id = "R1"
+name = "diff_getaligned_release_width_check"
+description = "The agent submits a patch that makes the `GetAligned` method of `BitReader` reject a byte count larger than its destination type through a check that stays active in release builds."
+type = "binary"
+weight = 0.13157894736842105
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = 5
+total_positive_weight = 38.0
+is_positive = true
+
+[[criterion]]
+id = "R2"
+name = "diff_nextcounts_stops_on_failed_value_read"
+description = "The agent submits a patch that makes the `NextCounts` method of `RleDecoder` stop decoding when its read of the repeated-run value from the bit reader returns false."
+type = "binary"
+weight = 0.13157894736842105
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = 5
+total_positive_weight = 38.0
+is_positive = true
+
+[[criterion]]
+id = "R3"
+name = "diff_getbatchwithdict_index_range_check"
+description = "The agent submits a patch that range-checks each decoded dictionary index against the dictionary length on the `GetBatchWithDict` decode path before the dictionary entry is read, whether the bound is enforced inside `GetBatchWithDict`, threaded in from its caller, or guaranteed by validating the index bit width against the dictionary size."
+type = "binary"
+weight = 0.13157894736842105
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = 5
+total_positive_weight = 38.0
+is_positive = true
+
+[[criterion]]
+id = "R4"
+name = "diff_getbatchwithdictspaced_index_range_check"
+description = "The agent submits a patch that range-checks each decoded dictionary index against the dictionary length on the spaced (`GetBatchWithDictSpaced`) decode path before the dictionary entry is copied out, by any means that bounds the index before the read."
+type = "binary"
+weight = 0.13157894736842105
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = 5
+total_positive_weight = 38.0
+is_positive = true
+
+[[criterion]]
+id = "R5"
+name = "diff_dictdecoder_bit_width_validated"
+description = "The agent submits a patch that makes the `SetData` method of `DictDecoderImpl` reject an index bit width beyond what the index decoder supports."
+type = "binary"
+weight = 0.07894736842105263
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 38.0
+is_positive = true
+
+[[criterion]]
+id = "R6"
+name = "diff_bytearray_dict_index_range_check"
+description = "The agent submits a patch that range-checks every dictionary index in the `DictByteArrayDecoderImpl` Arrow decode loops before the dictionary entry is dereferenced."
+type = "binary"
+weight = 0.07894736842105263
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 38.0
+is_positive = true
+
+[[criterion]]
+id = "R7"
+name = "diff_getvlqint_length_capped"
+description = "The agent submits a patch that caps the `GetVlqInt` method of `BitReader` at the maximum encoded length of a 32-bit value."
+type = "binary"
+weight = 0.07894736842105263
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 38.0
+is_positive = true
+
+[[criterion]]
+id = "R8"
+name = "diff_rle_batch_short_read_returns_early"
+description = "The agent submits a patch that makes the RLE batch decoders return early when the bit reader yields fewer values than the batch requested."
+type = "binary"
+weight = 0.07894736842105263
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 38.0
+is_positive = true
+
+[[criterion]]
+id = "R9"
+name = "diff_level_prefix_sign_checked"
+description = "The agent submits a patch that makes the `SetData` method of `LevelDecoder` reject a negative RLE level-length prefix."
+type = "binary"
+weight = 0.02631578947368421
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 1
+total_positive_weight = 38.0
+is_positive = true
+
+[[criterion]]
+id = "R10"
+name = "diff_bitreader_checks_return_false"
+description = "The agent submits a patch whose added checks inside `BitReader` report malformed input through a false return value."
+type = "binary"
+weight = 0.07894736842105263
+
+[criterion.annotations]
+mode = "judged"
+type = "agent behavior"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 3
+total_positive_weight = 38.0
+is_positive = true
+
+[[criterion]]
+id = "R11"
+name = "diff_rle_checks_return_short_count"
+description = "The agent submits a patch whose added checks inside `RleDecoder` report malformed input through a short count of decoded values."
+type = "binary"
+weight = 0.02631578947368421
+
+[criterion.annotations]
+mode = "judged"
+type = "agent behavior"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 1
+total_positive_weight = 38.0
+is_positive = true
+
+[[criterion]]
+id = "R12"
+name = "diff_rle_index_checks_share_helper"
+description = "The agent submits a patch that applies an equivalent dictionary-index range check at each RLE dictionary-decode site; a shared range-check helper or repeated equivalent inline checks both satisfy this."
+type = "binary"
+weight = 0.02631578947368421
+
+[criterion.annotations]
+mode = "judged"
+type = "agent behavior"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = 1
+total_positive_weight = 38.0
+is_positive = true
+
+[[criterion]]
+id = "R14"
+name = "pen_file_metadata_only"
+description = "The agent submits a patch confined to Parquet file-metadata handling outside the column decoders."
+type = "binary"
+weight = -0.13157894736842105
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = -5
+total_positive_weight = 38.0
+is_positive = false
+
+[[criterion]]
+id = "R15"
+name = "pen_decode_failure_swallowed"
+description = "The agent submits a patch that wraps Parquet page decoding in an exception handler that discards the decoder failure as an empty successful read."
+type = "binary"
+weight = -0.13157894736842105
+
+[criterion.annotations]
+mode = "judged"
+type = "safety & boundaries"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = -5
+total_positive_weight = 38.0
+is_positive = false
+
+[[criterion]]
+id = "R16"
+name = "pen_keyed_to_own_reproducer"
+description = "The agent submits a patch that keys its check on a byte pattern specific to its own reproducer file."
+type = "binary"
+weight = -0.07894736842105263
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = -3
+total_positive_weight = 38.0
+is_positive = false
+
+[[criterion]]
+id = "R17"
+name = "pen_rejects_well_formed_dictionary_pages"
+description = "The agent submits a patch that rejects well-formed dictionary-encoded Parquet pages."
+type = "binary"
+weight = -0.07894736842105263
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "important"
+source_weight = -3
+total_positive_weight = 38.0
+is_positive = false
+
+[[criterion]]
+id = "R18"
+name = "pen_checks_only_in_dictionary_reads"
+description = "The agent submits a patch whose new checks all sit in code that reads dictionary entries."
+type = "binary"
+weight = -0.13157894736842105
+
+[criterion.annotations]
+mode = "judged"
+type = "task completion"
+evaluation_target = "state_change"
+importance = "critically_important"
+source_weight = -5
+total_positive_weight = 38.0
+is_positive = false

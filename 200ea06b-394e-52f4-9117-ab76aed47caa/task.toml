@@ -26,7 +26,10 @@ graded_key = "reward"
 full_reward = 1.0
 judge = "openai/gpt-6.1-sol through the codex CLI 0.169.0"
 judge_dependency = "The rubric half needs the codex bridge at CODEX_BRIDGE_URL (default http://172.17.0.1:8788) and its key in KAKASHI_CODEX_BRIDGE_SECRET. Without either, or without an agent trajectory, tests/test.sh records the rubric as UNSCORED in /logs/verifier/rubric_judge_failed.txt and reward = pytest. The judge runs as an unprivileged uid and sets only the rubric value; the pytest value is scored as root before it runs."
-agent_network = "The agent container has no network. The harness admits only the model endpoint (harbor --allow-agent-host); an agent that calls a model API from inside the container needs [agent] network_mode = \"allowlist\" with that host."
+agent_network = "The agent container has no network. Claude Code is baked into the image, so the agent phase fetches no package; the harness admits only the model endpoint with harbor --allow-agent-host. Through a bridge, admit the bridge IP (172.17.0.1 for the host bridge on :8790). Directly, admit api.anthropic.com; the agent then needs DNS through Harbor's egress sidecar."
+agent_harness = "claude-code 2.1.326, baked at /usr/local/bin/claude and sha256-checked per architecture; run with --ak version=2.1.326 so Harbor uses it instead of installing one."
+agent_model = "anthropic/claude-opus-4-8"
+agent_run = "Through the host bridge: harbor run -p <task-dir> -a claude-code -m claude-opus-4-8 --ak version=2.1.326 --ak disable_web_search=true --ae ANTHROPIC_BASE_URL=http://172.17.0.1:8790 --ae ANTHROPIC_API_KEY=<bridge secret> --allow-agent-host 172.17.0.1. Pass the model without the anthropic/ prefix there: Harbor 0.24 forwards the prefix unchanged whenever ANTHROPIC_BASE_URL is set. Directly: -m anthropic/claude-opus-4-8 with CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY and --allow-agent-host api.anthropic.com."
 
 [[metadata.deliverables]]
 id = "D1"

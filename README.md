@@ -15,7 +15,7 @@ All five tasks use Harbor task schema 1.4 on linux/amd64 and linux/arm64. Each g
 | [`01a096f0-c303-5ccb-aefb-126ac0415889`](01a096f0-c303-5ccb-aefb-126ac0415889/) | [Hugo](https://github.com/gohugoio/hugo) | Go | Diagnose and patch an SSRF vulnerability in a Go static site generator URL security policy [e2e]. |
 | [`200ea06b-394e-52f4-9117-ab76aed47caa`](200ea06b-394e-52f4-9117-ab76aed47caa/) | [fastify](https://github.com/fastify/fastify) | JavaScript/TypeScript | Find a security defect in fastify, prove it with a regression test, and repair it. |
 | [`59eebdee-339d-5ebf-ac48-d56584624e61`](59eebdee-339d-5ebf-ac48-d56584624e61/) | [Mailpit](https://github.com/axllent/mailpit) | Go | Find the server-side request forgery check in github.com/axllent/mailpit that treats IPv6 addresses carrying internal IPv4 destinations as external, prove it with a regression test, and repair it; a cross-origin check bypass may also be repaired for a smaller share. |
-| [`bdd186f6-2818-5db5-977c-c2768cb6253f`](bdd186f6-2818-5db5-977c-c2768cb6253f/) | [Argo Workflows](https://github.com/argoproj/argo-workflows) | Go | Find a security defect in github.com/argoproj/argo-workflows/v4, prove it with a regression test, and repair it. |
+| [`9817daf5-6a35-512f-a0fc-d1fb71fdb182`](9817daf5-6a35-512f-a0fc-d1fb71fdb182/) | [Apache Arrow](https://github.com/apache/arrow) | C++ | Diagnose and patch out-of-bounds read defects in an analytics library's RLE and Parquet dictionary decoders [e2e]. |
 | [`fe22839e-5022-5dd9-9220-65b16c728a04`](fe22839e-5022-5dd9-9220-65b16c728a04/) | [fast-uri](https://github.com/fastify/fast-uri) | JavaScript/TypeScript | Find a security defect in fast-uri, prove it with a regression test, and repair it. |
 
 ## Task layout
@@ -59,6 +59,6 @@ The rubric half calls the codex bridge at `CODEX_BRIDGE_URL` with its key in `KA
 
 ## License
 
-Each task's source tree keeps its upstream project's licence: Hugo (Apache-2.0), fastify (MIT), Mailpit (MIT), Argo Workflows (Apache-2.0) and fast-uri (BSD-3-Clause).
+Each task's source tree keeps its upstream project's licence: Hugo (Apache-2.0), fastify (MIT), Mailpit (MIT), Apache Arrow (Apache-2.0) and fast-uri (BSD-3-Clause).
 
 Copyright (c) 2026 Green Rider Technology LLP (Ethara AI). All rights reserved.

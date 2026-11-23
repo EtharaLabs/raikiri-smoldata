@@ -39,29 +39,151 @@ python3 - <<'PYEOF'
 import json, pathlib
 AGENT_DIR = pathlib.Path("/logs/agent")
 tf = pathlib.Path("/tmp/agent_trajectory.json")
-steps, final = [], ""
-log = None
-if AGENT_DIR.is_dir():
-    for c in [AGENT_DIR/"trajectory.json"] + sorted(AGENT_DIR.glob("*.txt")):
-        if c.exists() and c.stat().st_size:
-            log = c; break
-if log and log.suffix == ".json":
+
+def _text_of(raw):
+    if isinstance(raw, list) and raw:
+        return raw[0].get("text", "") if isinstance(raw[0], dict) else str(raw[0])
+    return raw
+
+def _parse_json(raw):
+    # Parsed output must also re-encode; deep nesting loads on 3.12 but fails to dump.
     try:
-        doc = json.loads(log.read_text())
-        for st in doc.get("steps") or []:
-            m = st.get("message")
-            if isinstance(m, str) and m.strip(): final = m
-            for tc in st.get("tool_calls") or []:
-                # A closing message may be delivered as the `finish` tool's
-                # argument rather than as a plain assistant message.
-                if tc.get("function_name") == "finish":
-                    fin = (tc.get("arguments") or {}).get("message")
-                    if isinstance(fin, str) and fin.strip(): final = fin
-                steps.append({"tool": tc.get("function_name",""), "arguments": tc.get("arguments") or {}})
-    except Exception:
-        pass
-tf.write_text(json.dumps({"steps": steps, "final_message": final}, indent=2))
-print(f"[1/5 trajectory] {len(steps)} steps")
+        val = json.loads(raw) if isinstance(raw, str) else raw
+        json.dumps(val, indent=2)
+        return val
+    except (ValueError, TypeError, RecursionError):
+        return {"text": raw if isinstance(raw, str) else ""}
+
+def _safe_step(step):
+    # One step that cannot be encoded is reduced alone instead of discarding every step.
+    try:
+        json.dumps(step, indent=2)
+        return step
+    except (ValueError, TypeError, RecursionError):
+        tool = step.get("tool")
+        return {"tool": tool if isinstance(tool, str) else "", "arguments": {}, "response": None}
+
+def _size(p):
+    # Dangling symlinks and unreadable entries sort last instead of raising.
+    try:
+        return p.stat().st_size
+    except OSError:
+        return -1
+
+def _atif(doc):
+    # trajectory.json (ATIF): agent steps carry tool_calls and observation results.
+    out, by_id, final = [], {}, ""
+    for st in doc.get("steps") or []:
+        if not isinstance(st, dict) or st.get("source") != "agent":
+            continue
+        msg = st.get("message")
+        if isinstance(msg, list):
+            msg = " ".join(p.get("text") or "" for p in msg
+                           if isinstance(p, dict) and p.get("type") == "text")
+        if isinstance(msg, str) and msg.strip():
+            final = msg
+        for tc in st.get("tool_calls") or []:
+            if not isinstance(tc, dict):
+                continue
+            cid = tc.get("tool_call_id") or ""
+            if cid and cid in by_id:
+                continue
+            entry = {"tool": tc.get("function_name", ""),
+                     "arguments": tc.get("arguments") or {}, "response": None}
+            out.append(entry)
+            if cid:
+                by_id[cid] = entry
+        results = (st.get("observation") or {}).get("results") or []
+        for r in results:
+            if not isinstance(r, dict):
+                continue
+            target = by_id.get(r.get("source_call_id"))
+            if target is None and len(results) == 1 and out and out[-1]["response"] is None:
+                target = out[-1]
+            if target is not None and target["response"] is None:
+                target["response"] = _parse_json(_text_of(r.get("content")))
+    return out, final
+
+def _stream(lines):
+    # claude-code.txt (stream-json): one event per line; malformed lines are skipped.
+    # The final message is the result event's text, else the last assistant text.
+    out, by_id, final, result = [], {}, "", ""
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            ev = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(ev, dict):
+            continue
+        etype = ev.get("type")
+        msg = ev.get("message") if isinstance(ev.get("message"), dict) else {}
+        content = msg.get("content") or []
+        if isinstance(content, str):
+            content = [{"type": "text", "text": content}]
+        if not isinstance(content, list):
+            content = []
+        if etype == "assistant":
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                if block.get("type") == "tool_use":
+                    bid = block.get("id") or ""
+                    if bid and bid in by_id:
+                        continue
+                    entry = {"tool": block.get("name", ""),
+                             "arguments": block.get("input") or {}, "response": None}
+                    out.append(entry)
+                    if bid:
+                        by_id[bid] = entry
+                elif block.get("type") == "text" and isinstance(block.get("text"), str) \
+                        and block["text"].strip():
+                    final = block["text"]
+        elif etype == "user":
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "tool_result":
+                    target = by_id.get(str(block.get("tool_use_id") or ""))
+                    if target is not None and target["response"] is None:
+                        target["response"] = _parse_json(_text_of(block.get("content")))
+        elif etype == "result" and isinstance(ev.get("result"), str) and ev["result"].strip():
+            result = ev["result"]
+    return out, result or final
+
+# Logs in order: trajectory.json, oracle.txt, then other *.txt, largest first.
+# The first log that yields steps wins; otherwise the first readable log is kept.
+steps, final, log = [], "", None
+try:
+    candidates = []
+    if AGENT_DIR.is_dir():
+        candidates = [AGENT_DIR / "trajectory.json", AGENT_DIR / "oracle.txt"]
+        candidates += sorted((p for p in AGENT_DIR.glob("*.txt") if p not in candidates),
+                             key=_size, reverse=True)
+    for p in candidates:
+        if not (p.is_file() and _size(p) > 0):
+            continue
+        try:
+            text = p.read_text(errors="ignore")
+            got = _atif(json.loads(text)) if p.suffix == ".json" else _stream(text.splitlines())
+        except Exception:
+            continue
+        if log is None or got[0]:
+            log, (steps, final) = p, got
+        if steps:
+            break
+    if not isinstance(final, str):
+        final = ""
+    steps = [_safe_step(s) for s in steps]
+    out = json.dumps({"steps": steps, "final_message": final}, indent=2)
+except Exception:
+    steps, final, log = [], "", None
+    out = json.dumps({"steps": [], "final_message": ""}, indent=2)
+try:
+    tf.write_text(out)
+except OSError:
+    pass
+print(f"[1/5 trajectory] {len(steps)} steps" + (f" from {log.name}" if log is not None else ""))
 PYEOF
 [ -f "$TRAJ" ] && cp "$TRAJ" "$LOGDIR/agent_trajectory.json" || true
 

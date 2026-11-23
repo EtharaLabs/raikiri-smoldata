@@ -37,7 +37,7 @@
   },
   "null_floor": 0.0,
   "threshold": 0.7,
-  "pass_rule": "a run passes when reward.json reward >= threshold; reward = max(0, 0.5*pytest + 0.5*rubric) (tests/reward/reward.toml, rewardkit weighted-mean); pytest = max(0, (earned - tripped guard weight) / 37); rubric = max(0, sum(satisfied source_weight) / 34) with penalties signed; with no judge the rubric is dropped and reward = pytest. No gate: a tripped guard subtracts its weight; suite, preservation and variant credit each require a working repair and a reproducing agent reproducer inside the test itself.",
+  "pass_rule": "a run passes when reward.json reward >= threshold; reward = max(0, 0.5*pytest + 0.5*rubric) (tests/reward/reward.toml, rewardkit weighted-mean); pytest = max(0, (earned - tripped guard weight) / 37); rubric = max(0, sum(satisfied source_weight) / 33) with penalties signed; with no judge the rubric is dropped and reward = pytest. No gate: a tripped guard subtracts its weight; suite, preservation and variant credit each require a working repair and a reproducing agent reproducer inside the test itself.",
   "guard_polarity": "pass_charges",
   "guard_polarity_note": "each test_negative_weight_* returns/asserts true when it DETECTS the violation, so a guard is charged when its test passes."
 }

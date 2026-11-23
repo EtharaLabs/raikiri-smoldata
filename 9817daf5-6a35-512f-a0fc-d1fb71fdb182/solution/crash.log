@@ -1,0 +1,65 @@
+INFO: Seed: 2250525342
+INFO: Loaded 1 modules   (614932 inline 8-bit counters): 614932 [0x28cb150, 0x2961364), 
+INFO: Loaded 1 PC tables (614932 PCs): 614932 [0x2961368,0x32c34a8), 
+/bld/OSV-2020-42/release/parquet-arrow-fuzz: Running 1 inputs 1 time(s) each.
+Running: /caps/OSV-2020-42/ref.bin
+=================================================================
+==239==ERROR: AddressSanitizer: heap-buffer-overflow on address 0xffffa7c06758 at pc 0x000000ad3988 bp 0xffffeba75fd0 sp 0xffffeba75fc8
+READ of size 8 at 0xffffa7c06758 thread T0
+    #0 0xad3984 in int arrow::util::RleDecoder::GetBatchWithDictSpaced<long>(long const*, long*, int, int, unsigned char const*, long) /src/arrow/cpp/src/arrow/util/rle_encoding.h:488:20
+    #1 0xacfc30 in parquet::DictDecoderImpl<parquet::PhysicalType<(parquet::Type::type)2> >::DecodeSpaced(long*, int, int, unsigned char const*, long) /src/arrow/cpp/src/parquet/encoding.cc:1584:36
+    #2 0xacfc30 in virtual thunk to parquet::DictDecoderImpl<parquet::PhysicalType<(parquet::Type::type)2> >::DecodeSpaced(long*, int, int, unsigned char const*, long) /src/arrow/cpp/src/parquet/encoding.cc
+    #3 0x925f80 in parquet::internal::TypedRecordReader<parquet::PhysicalType<(parquet::Type::type)2> >::ReadRecordData(long) /src/arrow/cpp/src/parquet/column_reader.cc:1188:7
+    #4 0x91f748 in parquet::internal::TypedRecordReader<parquet::PhysicalType<(parquet::Type::type)2> >::ReadRecords(long) /src/arrow/cpp/src/parquet/column_reader.cc
+    #5 0x6f7ccc in parquet::arrow::LeafReader::NextBatch(long, std::shared_ptr<arrow::ChunkedArray>*) /src/arrow/cpp/src/parquet/arrow/reader.cc:433:46
+    #6 0x6fb130 in parquet::arrow::NestedListReader::NextBatch(long, std::shared_ptr<arrow::ChunkedArray>*) /src/arrow/cpp/src/parquet/arrow/reader.cc:487:5
+    #7 0x709a6c in parquet::arrow::FileReaderImpl::ReadSchemaField(int, std::shared_ptr<std::unordered_set<int, std::hash<int>, std::equal_to<int>, std::allocator<int> > > const&, std::vector<int, std::allocator<int> > const&, std::shared_ptr<arrow::Field>*, std::shared_ptr<arrow::ChunkedArray>*) /src/arrow/cpp/src/parquet/arrow/reader.cc:193:20
+    #8 0x6d3ee8 in parquet::arrow::FileReaderImpl::ReadRowGroups(std::vector<int, std::allocator<int> > const&, std::vector<int, std::allocator<int> > const&, std::shared_ptr<arrow::Table>*)::$_0::operator()(int) const /src/arrow/cpp/src/parquet/arrow/reader.cc:809:12
+    #9 0x6d3ee8 in parquet::arrow::FileReaderImpl::ReadRowGroups(std::vector<int, std::allocator<int> > const&, std::vector<int, std::allocator<int> > const&, std::shared_ptr<arrow::Table>*) /src/arrow/cpp/src/parquet/arrow/reader.cc:829:7
+    #10 0x6f2ad0 in parquet::arrow::FileReaderImpl::ReadRowGroup(int, std::vector<int, std::allocator<int> > const&, std::shared_ptr<arrow::Table>*) /src/arrow/cpp/src/parquet/arrow/reader.cc:256:12
+    #11 0x6f32cc in parquet::arrow::FileReaderImpl::ReadRowGroup(int, std::shared_ptr<arrow::Table>*) /src/arrow/cpp/src/parquet/arrow/reader.cc:260:12
+    #12 0x6e7968 in parquet::arrow::internal::FuzzReader(std::unique_ptr<parquet::arrow::FileReader, std::default_delete<parquet::arrow::FileReader> >) /src/arrow/cpp/src/parquet/arrow/reader.cc:935:37
+    #13 0x6e9d54 in parquet::arrow::internal::FuzzReader(unsigned char const*, long) /src/arrow/cpp/src/parquet/arrow/reader.cc:952:10
+    #14 0x6b4f10 in LLVMFuzzerTestOneInput /src/arrow/cpp/src/parquet/arrow/fuzz.cc:22:17
+    #15 0x5d1e98 in fuzzer::Fuzzer::ExecuteCallback(unsigned char const*, unsigned long) (/bld/OSV-2020-42/release/parquet-arrow-fuzz+0x5d1e98)
+    #16 0x5c1ef0 in fuzzer::RunOneTest(fuzzer::Fuzzer*, char const*, unsigned long) (/bld/OSV-2020-42/release/parquet-arrow-fuzz+0x5c1ef0)
+    #17 0x5c6640 in fuzzer::FuzzerDriver(int*, char***, int (*)(unsigned char const*, unsigned long)) (/bld/OSV-2020-42/release/parquet-arrow-fuzz+0x5c6640)
+    #18 0x5e5950 in main (/bld/OSV-2020-42/release/parquet-arrow-fuzz+0x5e5950)
+    #19 0xffffb137ee0c in __libc_start_main (/lib/aarch64-linux-gnu/libc.so.6+0x20e0c)
+    #20 0x5a1a30 in _start (/bld/OSV-2020-42/release/parquet-arrow-fuzz+0x5a1a30)
+
+Address 0xffffa7c06758 is a wild pointer.
+SUMMARY: AddressSanitizer: heap-buffer-overflow /src/arrow/cpp/src/arrow/util/rle_encoding.h:488:20 in int arrow::util::RleDecoder::GetBatchWithDictSpaced<long>(long const*, long*, int, int, unsigned char const*, long)
+Shadow bytes around the buggy address:
+  0x200ff4f80c90: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x200ff4f80ca0: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x200ff4f80cb0: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x200ff4f80cc0: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x200ff4f80cd0: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+=>0x200ff4f80ce0: fa fa fa fa fa fa fa fa fa fa fa[fa]fa fa fa fa
+  0x200ff4f80cf0: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x200ff4f80d00: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x200ff4f80d10: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x200ff4f80d20: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x200ff4f80d30: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+  Shadow gap:              cc
+==239==ABORTING

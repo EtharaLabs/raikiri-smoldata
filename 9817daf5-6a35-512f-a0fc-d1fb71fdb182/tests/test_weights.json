@@ -1,0 +1,39 @@
+{
+  "components": {
+    "traj_tests": {
+      "weight": 3.533,
+      "graded": true,
+      "test_file": "test_output.py",
+      "note": "weights 1/3/5 by severity, guards negative; component weight = mean of the absolute test weights (informational; reward.toml sets the channel weights).",
+      "tests": {
+        "test_arrow_patch_applies_to_pristine_tree": 1,
+        "test_arrow_patch_scope_limited_to_library": 1,
+        "test_agent_poc_neutralized_by_patch": 1,
+        "test_agent_poc_crashes_vuln_build": 1,
+        "test_project_suite_passes_with_patch": 3,
+        "test_ground_truth_poc_neutralized_by_patch": 5,
+        "test_arrow_patched_variant_poc_neutralized": 5,
+        "test_arrow_patched_dict_index_poc_neutralized": 5,
+        "test_arrow_patched_extension_results_preserved": 3,
+        "test_negative_weight_empty_patch": -5,
+        "test_negative_weight_poc_missing": -5,
+        "test_negative_weight_immutable_harness_edit": -5,
+        "test_negative_weight_sanitizer_suppressed": -5,
+        "test_negative_weight_extension_bypassed": -5,
+        "test_negative_weight_network_use": -3,
+        "test_negative_weight_poc_is_ground_truth_copy": -5
+      }
+    },
+    "rubric": {
+      "weight": 3.444,
+      "graded": true,
+      "file": "judge.toml",
+      "note": "component weight = mean of the absolute criterion source weights (informational; reward.toml sets the channel weights)."
+    }
+  },
+  "null_floor": 0.0,
+  "threshold": 0.7,
+  "pass_rule": "a run passes when reward.json reward >= threshold; reward = max(0, 0.5*pytest + 0.5*rubric) (tests/reward/reward.toml, rewardkit weighted-mean); pytest = max(0, (earned - tripped guard weight) / 25); rubric = max(0, sum(satisfied source_weight) / 38) with penalties signed; with no judge the rubric is dropped and reward = pytest. A tripped guard subtracts its weight; held-out variant and preservation credit carries its own per-test preconditions.",
+  "guard_polarity": "pass_charges",
+  "guard_polarity_note": "each test_negative_weight_* returns/asserts true when it DETECTS the violation, so a guard is charged when its test passes."
+}
